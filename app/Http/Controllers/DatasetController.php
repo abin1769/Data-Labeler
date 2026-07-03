@@ -37,55 +37,55 @@ class DatasetController extends Controller
                 2 => []
             ];
 
-            // Scan train folders dynamically from public/dataset/train/
-            $trainPath = public_path('dataset' . DIRECTORY_SEPARATOR . 'train');
-            if (File::exists($trainPath)) {
-                $directories = File::directories($trainPath);
-                
-                foreach ([0, 1, 2] as $label) {
-                    $targetDir = null;
-                    foreach ($directories as $dir) {
-                        $dirName = basename($dir);
-                        if (str_starts_with($dirName, $label . '_')) {
-                            $targetDir = $dir;
-                            break;
-                        }
-                    }
+            // 1. Coba ambil dari folder manual upload (public/examples/{label}) terlebih dahulu
+            foreach ([0, 1, 2] as $label) {
+                $manualDir = public_path("examples/{$label}");
+                if (File::exists($manualDir)) {
+                    $files = File::files($manualDir);
+                    $imageFiles = array_filter($files, function($file) {
+                        return in_array(strtolower($file->getExtension()), ['jpg', 'jpeg', 'png', 'webp', 'gif']);
+                    });
 
-                    if ($targetDir && File::exists($targetDir)) {
-                        $files = File::files($targetDir);
-                        $imageFiles = array_filter($files, function($file) {
-                            return in_array(strtolower($file->getExtension()), ['jpg', 'jpeg', 'png', 'webp', 'gif']);
-                        });
-
-                        if (!empty($imageFiles)) {
-                            shuffle($imageFiles); // Shuffle to make examples change randomly on reload!
-                            $selectedFiles = array_slice($imageFiles, 0, 4);
-
-                            foreach ($selectedFiles as $file) {
-                                $folderName = basename($targetDir);
-                                $examples[$label][] = asset("dataset/train/{$folderName}/" . $file->getFilename());
-                            }
+                    if (!empty($imageFiles)) {
+                        shuffle($imageFiles); // Acak contoh agar bervariasi
+                        $selectedFiles = array_slice($imageFiles, 0, 4);
+                        foreach ($selectedFiles as $file) {
+                            $examples[$label][] = asset("examples/{$label}/" . $file->getFilename());
                         }
                     }
                 }
             }
 
-            // Fallback to public/examples/{label}/ if train folder is empty or not found
-            foreach ([0, 1, 2] as $label) {
-                if (empty($examples[$label])) {
-                    $fallbackDir = public_path("examples/{$label}");
-                    if (File::exists($fallbackDir)) {
-                        $files = File::files($fallbackDir);
-                        $imageFiles = array_filter($files, function($file) {
-                            return in_array(strtolower($file->getExtension()), ['jpg', 'jpeg', 'png', 'webp', 'gif']);
-                        });
+            // 2. Jika folder manual kosong, baru fallback ke folder train dataset (public/dataset/train/)
+            $trainPath = public_path('dataset' . DIRECTORY_SEPARATOR . 'train');
+            if (File::exists($trainPath)) {
+                $directories = File::directories($trainPath);
+                
+                foreach ([0, 1, 2] as $label) {
+                    if (empty($examples[$label])) {
+                        $targetDir = null;
+                        foreach ($directories as $dir) {
+                            $dirName = basename($dir);
+                            if (str_starts_with($dirName, $label . '_')) {
+                                $targetDir = $dir;
+                                break;
+                            }
+                        }
 
-                        if (!empty($imageFiles)) {
-                            shuffle($imageFiles);
-                            $selectedFiles = array_slice($imageFiles, 0, 4);
-                            foreach ($selectedFiles as $file) {
-                                $examples[$label][] = asset("examples/{$label}/" . $file->getFilename());
+                        if ($targetDir && File::exists($targetDir)) {
+                            $files = File::files($targetDir);
+                            $imageFiles = array_filter($files, function($file) {
+                                return in_array(strtolower($file->getExtension()), ['jpg', 'jpeg', 'png', 'webp', 'gif']);
+                            });
+
+                            if (!empty($imageFiles)) {
+                                shuffle($imageFiles); // Shuffle agar dinamis
+                                $selectedFiles = array_slice($imageFiles, 0, 4);
+
+                                foreach ($selectedFiles as $file) {
+                                    $folderName = basename($targetDir);
+                                    $examples[$label][] = asset("dataset/train/{$folderName}/" . $file->getFilename());
+                                }
                             }
                         }
                     }
@@ -291,7 +291,29 @@ class DatasetController extends Controller
                 ->orderBy('updated_at', 'desc')
                 ->paginate(20, ['*'], 'approved_page');
 
-            return view('admin', compact('stats', 'pendingItems', 'approvedItems'));
+            // Get manual examples list for admin to delete/manage
+            $manualExamples = [
+                0 => [],
+                1 => [],
+                2 => []
+            ];
+            foreach ([0, 1, 2] as $label) {
+                $dir = public_path("examples/{$label}");
+                if (File::exists($dir)) {
+                    $files = File::files($dir);
+                    foreach ($files as $file) {
+                        $ext = strtolower($file->getExtension());
+                        if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'])) {
+                            $manualExamples[$label][] = [
+                                'filename' => $file->getFilename(),
+                                'url' => asset("examples/{$label}/" . $file->getFilename())
+                            ];
+                        }
+                    }
+                }
+            }
+
+            return view('admin', compact('stats', 'pendingItems', 'approvedItems', 'manualExamples'));
         }
 
         return view('admin_login');
@@ -323,14 +345,14 @@ class DatasetController extends Controller
     }
 
     /**
-     * Scan the local dataset directory and sync it with the database.
+     * Internal helper to scan dataset path and register new images.
      */
-    public function syncDataset()
+    private function syncDatasetInternal()
     {
         $datasetPath = $this->getDatasetPath();
 
         if (!File::exists($datasetPath)) {
-            return back()->with('error', "Dataset folder not found at: {$datasetPath}. Please verify your .env file.");
+            throw new \Exception("Dataset folder not found at: {$datasetPath}. Please verify your .env file or upload a ZIP.");
         }
 
         // Scan folder for images (jpg, jpeg, png, gif, webp)
@@ -346,7 +368,7 @@ class DatasetController extends Controller
         }
 
         if (empty($imageFiles)) {
-            return back()->with('warning', "No images found in the dataset path: {$datasetPath}.");
+            return 0;
         }
 
         $insertedCount = 0;
@@ -375,10 +397,116 @@ class DatasetController extends Controller
             }
         }
 
-        // Optional: Clean up records in database where file no longer exists
-        // Wait, let's keep it safe. We can have a checkbox for this, but let's just sync additions.
+        return $insertedCount;
+    }
+
+    /**
+     * Scan the local dataset directory and sync it with the database.
+     */
+    public function syncDataset()
+    {
+        try {
+            $insertedCount = $this->syncDatasetInternal();
+            return back()->with('success', "Dataset synced! Added {$insertedCount} new images. Total images: " . Image::count());
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Handle ZIP dataset upload, unzipping, and auto-sync.
+     */
+    public function uploadDataset(Request $request)
+    {
+        set_time_limit(360);
+        ini_set('memory_limit', '512M');
+
+        $request->validate([
+            'dataset_zip' => 'required|file|mimes:zip|max:204800' // Max 200MB ZIP
+        ]);
+
+        $file = $request->file('dataset_zip');
+        $tempDir = storage_path('app' . DIRECTORY_SEPARATOR . 'temp');
+        if (!File::exists($tempDir)) {
+            File::makeDirectory($tempDir, 0755, true);
+        }
         
-        return back()->with('success', "Dataset synced! Added {$insertedCount} new images. Total images: " . Image::count());
+        $tempZipPath = $tempDir . DIRECTORY_SEPARATOR . 'upload_' . time() . '.zip';
+        $file->move($tempDir, basename($tempZipPath));
+
+        $extractPath = $this->getDatasetPath();
+        if (!File::exists($extractPath)) {
+            File::makeDirectory($extractPath, 0755, true);
+        }
+
+        $zip = new ZipArchive;
+        if ($zip->open($tempZipPath) === TRUE) {
+            $zip->extractTo($extractPath);
+            $zip->close();
+            File::delete($tempZipPath);
+
+            // Automatically run sync
+            try {
+                $insertedCount = $this->syncDatasetInternal();
+                return back()->with('success', "Dataset ZIP berhasil diunggah & diekstrak! Menyinkronkan {$insertedCount} gambar baru ke database. Total gambar di database: " . Image::count());
+            } catch (\Exception $e) {
+                return back()->with('success', "Dataset ZIP berhasil diekstrak, namun gagal sinkron otomatis: " . $e->getMessage());
+            }
+        } else {
+            File::delete($tempZipPath);
+            return back()->with('error', "Gagal membuka atau mengekstrak file ZIP.");
+        }
+    }
+
+    /**
+     * Handle example images upload for visual guidelines.
+     */
+    public function uploadExamples(Request $request)
+    {
+        $request->validate([
+            'label' => 'required|in:0,1,2',
+            'example_images' => 'required|array',
+            'example_images.*' => 'required|image|mimes:jpg,jpeg,png,gif,webp|max:10240' // Max 10MB per image
+        ]);
+
+        $label = $request->input('label');
+        $files = $request->file('example_images');
+        $targetDir = public_path("examples/{$label}");
+
+        if (!File::exists($targetDir)) {
+            File::makeDirectory($targetDir, 0755, true);
+        }
+
+        $uploadedCount = 0;
+        foreach ($files as $file) {
+            $filename = 'example_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move($targetDir, $filename);
+            $uploadedCount++;
+        }
+
+        return back()->with('success', "Berhasil mengunggah {$uploadedCount} gambar contoh baru untuk label {$label}!");
+    }
+
+    /**
+     * Handle manual example image deletion.
+     */
+    public function deleteExample(Request $request)
+    {
+        $request->validate([
+            'label' => 'required|in:0,1,2',
+            'filename' => 'required|string'
+        ]);
+
+        $label = $request->input('label');
+        $filename = basename($request->input('filename')); // Sanitise to prevent traversal
+        $filePath = public_path("examples/{$label}/{$filename}");
+
+        if (File::exists($filePath)) {
+            File::delete($filePath);
+            return back()->with('success', "Gambar contoh berhasil dihapus.");
+        }
+
+        return back()->with('error', "File tidak ditemukan.");
     }
 
     /**

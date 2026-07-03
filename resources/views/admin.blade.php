@@ -146,7 +146,124 @@
                 </a>
             </div>
         </div>
+        <!-- Upload Panel Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <!-- Upload Dataset ZIP Card -->
+            <div class="glass-card rounded-3xl p-6 relative shadow-xl">
+                <div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent"></div>
+                <div class="mb-4">
+                    <h3 class="text-lg font-bold font-outfit text-slate-100 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        Upload ZIP Dataset (Data Test)
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-1">Unggah file ZIP berisi kumpulan gambar test langsung dari komputer lokal Anda ke server.</p>
+                </div>
 
+                <form action="{{ route('admin.upload-dataset') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                    @csrf
+                    <div class="flex items-center justify-center w-full">
+                        <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-700 border-dashed rounded-2xl cursor-pointer bg-slate-900/40 hover:bg-slate-900/60 transition-all duration-200">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 mb-2 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2-8H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V8l-6-6z" />
+                                </svg>
+                                <p class="mb-1 text-xs text-slate-300 font-semibold" id="zip-file-label">Klik untuk memilih file ZIP</p>
+                                <p class="text-[10px] text-slate-500">ZIP (Maksimal 200MB)</p>
+                            </div>
+                            <input type="file" name="dataset_zip" id="dataset_zip" accept=".zip" class="hidden" required onchange="updateZipFileName(this)" />
+                        </label>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition-all duration-200 flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Ekstrak & Sinkronisasi ZIP
+                    </button>
+                </form>
+            </div>
+
+            <!-- Upload Guidelines Examples Card -->
+            <div class="glass-card rounded-3xl p-6 relative shadow-xl">
+                <div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent"></div>
+                <div class="mb-4">
+                    <h3 class="text-lg font-bold font-outfit text-slate-100 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Upload Gambar Contoh (Guidelines)
+                    </h3>
+                    <p class="text-xs text-slate-400 mt-1">Unggah beberapa gambar sampel untuk dijadikan panduan klasifikasi di workspace pelabelan.</p>
+                </div>
+
+                <form action="{{ route('admin.upload-examples') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                    @csrf
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="col-span-1">
+                            <label for="label_select" class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Kelas</label>
+                            <select name="label" id="label_select" class="w-full bg-slate-900 border border-slate-700/60 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-purple-500 font-medium">
+                                <option value="0">0 - Recycleable</option>
+                                <option value="1">1 - Electronics</option>
+                                <option value="2">2 - Organics</option>
+                            </select>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Pilih File Gambar</label>
+                            <div class="relative">
+                                <input type="file" name="example_images[]" id="example_images" accept="image/*" multiple required class="w-full bg-slate-900 border border-slate-700/60 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-purple-500 font-medium" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-purple-600/20 transition-all duration-200 flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Upload Gambar Contoh
+                    </button>
+                </form>
+
+                <!-- Current Example Images Gallery -->
+                <div class="mt-4 pt-4 border-t border-slate-800">
+                    <h4 class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Daftar Contoh Saat Ini:</h4>
+                    <div class="space-y-3 max-h-[140px] overflow-y-auto pr-1">
+                        @foreach([0, 1, 2] as $lbl)
+                            <div class="flex flex-col gap-1.5">
+                                <div class="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full {{ $lbl == 0 ? 'bg-emerald-500' : ($lbl == 1 ? 'bg-blue-500' : 'bg-amber-500') }}"></span>
+                                    Kelas {{ $lbl }} ({{ $lbl == 0 ? 'Recycleable' : ($lbl == 1 ? 'Electronics' : 'Organics') }})
+                                </div>
+                                @if(empty($manualExamples[$lbl]))
+                                    <div class="text-[10px] text-slate-500 italic pl-3.5">Belum ada contoh manual.</div>
+                                @else
+                                    <div class="flex flex-wrap gap-2 pl-3.5">
+                                        @foreach($manualExamples[$lbl] as $ex)
+                                            <div class="relative w-10 h-10 rounded border border-slate-850 bg-slate-900 overflow-hidden group">
+                                                <img src="{{ $ex['url'] }}" class="w-full h-full object-cover">
+                                                <form action="{{ route('admin.delete-example') }}" method="POST" class="absolute inset-0 bg-slate-950/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-150">
+                                                    @csrf
+                                                    <input type="hidden" name="label" value="{{ $lbl }}">
+                                                    <input type="hidden" name="filename" value="{{ $ex['filename'] }}">
+                                                    <button type="submit" class="text-red-400 hover:text-red-300" title="Hapus Gambar">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+
+        </div>
         <!-- Statistics Dashboard -->
         <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div class="glass-card rounded-2xl p-5">
@@ -496,6 +613,20 @@
             // we can just let them refresh or update simple DOM elements. Let's do a quiet reload after a short delay
             // if multiple items are processed, or let the user refresh. Actually, a simple page refresh is fine
             // but page refresh keeps them at the correct scroll position. To make it extremely clean, let's keep it dynamic.
+        }
+
+        // Helper to update ZIP file name in input label
+        function updateZipFileName(input) {
+            const label = document.getElementById('zip-file-label');
+            if (input.files && input.files.length > 0) {
+                label.textContent = "Terpilih: " + input.files[0].name;
+                label.classList.remove('text-slate-300');
+                label.classList.add('text-indigo-400');
+            } else {
+                label.textContent = "Klik untuk memilih file ZIP";
+                label.classList.remove('text-indigo-400');
+                label.classList.add('text-slate-300');
+            }
         }
     </script>
 </body>
