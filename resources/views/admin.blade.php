@@ -162,7 +162,7 @@
                     <p class="text-xs text-slate-400 mt-1">Unggah file ZIP berisi kumpulan gambar test langsung dari komputer lokal Anda ke server.</p>
                 </div>
 
-                <form action="{{ route('admin.upload-dataset') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                <form id="zip-upload-form" onsubmit="uploadZip(event)" class="space-y-4">
                     @csrf
                     <div class="flex items-center justify-center w-full">
                         <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-700 border-dashed rounded-2xl cursor-pointer bg-slate-900/40 hover:bg-slate-900/60 transition-all duration-200">
@@ -175,6 +175,17 @@
                             </div>
                             <input type="file" name="dataset_zip" id="dataset_zip" accept=".zip" class="hidden" required onchange="updateZipFileName(this)" />
                         </label>
+                    </div>
+
+                    <!-- Progress Bar Container -->
+                    <div id="upload-progress-container" class="hidden space-y-2 p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+                        <div class="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            <span id="upload-progress-text">Mengunggah: 0%</span>
+                            <span id="upload-speed-text">-- KB/s</span>
+                        </div>
+                        <div class="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-850">
+                            <div id="upload-progress-bar" class="bg-indigo-500 h-full rounded-full transition-all duration-150" style="width: 0%"></div>
+                        </div>
                     </div>
 
                     <button type="submit" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/20 transition-all duration-200 flex items-center justify-center gap-2">
@@ -627,6 +638,80 @@
                 label.classList.remove('text-indigo-400');
                 label.classList.add('text-slate-300');
             }
+        }
+
+        // AJAX ZIP Upload with Progress Bar
+        function uploadZip(event) {
+            event.preventDefault();
+            const fileInput = document.getElementById('dataset_zip');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                alert('Silakan pilih file ZIP terlebih dahulu.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('dataset_zip', fileInput.files[0]);
+
+            const container = document.getElementById('upload-progress-container');
+            const bar = document.getElementById('upload-progress-bar');
+            const text = document.getElementById('upload-progress-text');
+            const speedText = document.getElementById('upload-speed-text');
+            const submitBtn = document.querySelector('#zip-upload-form button[type="submit"]');
+
+            container.classList.remove('hidden');
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            let startTime = Date.now();
+
+            axios.post("{{ route('admin.upload-dataset') }}", formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                },
+                onUploadProgress: function(progressEvent) {
+                    if (progressEvent.lengthComputable) {
+                        const percentComplete = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        bar.style.width = percentComplete + '%';
+                        text.textContent = `Mengunggah: ${percentComplete}%`;
+                        
+                        const duration = (Date.now() - startTime) / 1000;
+                        if (duration > 0) {
+                            const speed = progressEvent.loaded / duration; // bytes per second
+                            if (speed > 1024 * 1024) {
+                                speedText.textContent = (speed / (1024 * 1024)).toFixed(1) + ' MB/s';
+                            } else {
+                                speedText.textContent = (speed / 1024).toFixed(0) + ' KB/s';
+                            }
+                        }
+                    } else {
+                        text.textContent = 'Mengunggah...';
+                    }
+                }
+            })
+            .then(response => {
+                text.textContent = 'Mengekstrak & Sinkronisasi...';
+                bar.classList.remove('bg-indigo-500');
+                bar.classList.add('bg-emerald-500', 'animate-pulse');
+                
+                // Set success message in session/cookie equivalent or trigger reload
+                // Since Laravel returns redirect back with success flash, we reload to display it
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            })
+            .catch(error => {
+                console.error('Error uploading zip:', error);
+                let errorMsg = 'Terjadi kesalahan saat mengunggah.';
+                if (error.response?.data?.errors?.dataset_zip) {
+                    errorMsg = error.response.data.errors.dataset_zip[0];
+                } else if (error.response?.data?.message) {
+                    errorMsg = error.response.data.message;
+                }
+                alert('Gagal mengunggah dataset: ' + errorMsg);
+                container.classList.add('hidden');
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            });
         }
     </script>
 </body>
