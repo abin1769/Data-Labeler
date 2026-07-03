@@ -256,8 +256,7 @@
                                                 <img src="{{ $ex['url'] }}" class="w-full h-full object-cover">
                                                 <form action="{{ route('admin.delete-example') }}" method="POST" class="absolute inset-0 bg-slate-950/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-150">
                                                     @csrf
-                                                    <input type="hidden" name="label" value="{{ $lbl }}">
-                                                    <input type="hidden" name="filename" value="{{ $ex['filename'] }}">
+                                                    <input type="hidden" name="id" value="{{ $ex['id'] }}">
                                                     <button type="submit" class="text-red-400 hover:text-red-300" title="Hapus Gambar">
                                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12" />

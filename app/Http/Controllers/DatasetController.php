@@ -38,21 +38,13 @@ class DatasetController extends Controller
                 2 => []
             ];
 
-            // 1. Coba ambil dari folder manual upload (public/examples/{label}) terlebih dahulu
+            // 1. Coba ambil dari database ExampleImage (yang diunggah ke volume persisten)
             foreach ([0, 1, 2] as $label) {
-                $manualDir = public_path("examples/{$label}");
-                if (File::exists($manualDir)) {
-                    $files = File::files($manualDir);
-                    $imageFiles = array_filter($files, function($file) {
-                        return in_array(strtolower($file->getExtension()), ['jpg', 'jpeg', 'png', 'webp', 'gif']);
-                    });
-
-                    if (!empty($imageFiles)) {
-                        shuffle($imageFiles); // Acak contoh agar bervariasi
-                        $selectedFiles = array_slice($imageFiles, 0, 4);
-                        foreach ($selectedFiles as $file) {
-                            $examples[$label][] = asset("examples/{$label}/" . $file->getFilename());
-                        }
+                $dbExamples = \App\Models\ExampleImage::where('label', $label)->get();
+                if ($dbExamples->isNotEmpty()) {
+                    // Let's pass all urls so JS can cycle them!
+                    foreach ($dbExamples as $dbEx) {
+                        $examples[$label][] = $dbEx->url;
                     }
                 }
             }
@@ -337,26 +329,19 @@ class DatasetController extends Controller
             $approvedItems = $approvedQuery->orderBy('updated_at', 'desc')
                 ->paginate(20, ['*'], 'approved_page');
 
-            // Get manual examples list for admin to delete/manage
+            // Get database examples list for admin to delete/manage (stored on persistent volume)
             $manualExamples = [
                 0 => [],
                 1 => [],
                 2 => []
             ];
-            foreach ([0, 1, 2] as $label) {
-                $dir = public_path("examples/{$label}");
-                if (File::exists($dir)) {
-                    $files = File::files($dir);
-                    foreach ($files as $file) {
-                        $ext = strtolower($file->getExtension());
-                        if (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'])) {
-                            $manualExamples[$label][] = [
-                                'filename' => $file->getFilename(),
-                                'url' => asset("examples/{$label}/" . $file->getFilename())
-                            ];
-                        }
-                    }
-                }
+            $dbExamples = \App\Models\ExampleImage::orderBy('created_at', 'desc')->get();
+            foreach ($dbExamples as $dbEx) {
+                $manualExamples[$dbEx->label][] = [
+                    'id' => $dbEx->id,
+                    'filename' => $dbEx->filename,
+                    'url' => $dbEx->url
+                ];
             }
 
             return view('admin', compact(
@@ -519,9 +504,9 @@ class DatasetController extends Controller
             'example_images.*' => 'required|image|mimes:jpg,jpeg,png,gif,webp|max:10240' // Max 10MB per image
         ]);
 
-        $label = $request->input('label');
+        $label = (int) $request->input('label');
         $files = $request->file('example_images');
-        $targetDir = public_path("examples/{$label}");
+        $targetDir = public_path("dataset/examples/{$label}");
 
         if (!File::exists($targetDir)) {
             File::makeDirectory($targetDir, 0755, true);
@@ -531,6 +516,13 @@ class DatasetController extends Controller
         foreach ($files as $file) {
             $filename = 'example_' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
             $file->move($targetDir, $filename);
+
+            // Record in the database
+            \App\Models\ExampleImage::create([
+                'filename' => $filename,
+                'label' => $label
+            ]);
+
             $uploadedCount++;
         }
 
@@ -543,20 +535,19 @@ class DatasetController extends Controller
     public function deleteExample(Request $request)
     {
         $request->validate([
-            'label' => 'required|in:0,1,2',
-            'filename' => 'required|string'
+            'id' => 'required|integer'
         ]);
 
-        $label = $request->input('label');
-        $filename = basename($request->input('filename')); // Sanitise to prevent traversal
-        $filePath = public_path("examples/{$label}/{$filename}");
+        $example = \App\Models\ExampleImage::findOrFail($request->input('id'));
+        $filePath = public_path("dataset/examples/{$example->label}/{$example->filename}");
 
         if (File::exists($filePath)) {
             File::delete($filePath);
-            return back()->with('success', "Gambar contoh berhasil dihapus.");
         }
 
-        return back()->with('error', "File tidak ditemukan.");
+        $example->delete();
+
+        return back()->with('success', "Gambar contoh berhasil dihapus.");
     }
 
     /**
