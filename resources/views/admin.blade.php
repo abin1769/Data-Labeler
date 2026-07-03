@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Labeler - Admin Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- Axios for API requests -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.04), transparent 45%),
+                        radial-gradient(circle at bottom left, rgba(220, 38, 38, 0.03), transparent 45%),
+                        #0f172a;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.55);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .glass-header {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        /* Fade out row animation */
+        .row-fade-out {
+            transition: all 0.4s ease-out;
+            opacity: 0;
+            transform: translateX(-20px);
+            height: 0;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            border: none !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-100 flex flex-col relative pb-12">
+
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <!-- Glowing Background Orbs -->
+    <div class="absolute top-10 right-10 w-[500px] h-[500px] bg-red-500/3 rounded-full blur-[150px] pointer-events-none"></div>
+    <div class="absolute bottom-10 left-10 w-[500px] h-[500px] bg-indigo-500/3 rounded-full blur-[150px] pointer-events-none"></div>
+
+    <!-- Header -->
+    <header class="glass-header sticky top-0 z-50 py-4 px-6 md:px-12 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-red-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-red-500/20">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+            </div>
+            <div>
+                <span class="font-outfit font-bold text-lg tracking-tight bg-gradient-to-r from-slate-200 to-red-200 bg-clip-text text-transparent">Data Labeler</span>
+                <span class="text-[10px] uppercase font-bold tracking-widest text-red-400 bg-red-400/10 px-1.5 py-0.5 rounded ml-2">Admin Panel</span>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <a href="{{ route('home') }}" class="text-xs font-semibold text-slate-300 hover:text-indigo-400 transition-colors duration-200">
+                Workspace Label
+            </a>
+            
+            <form action="{{ route('admin.logout') }}" method="POST" class="inline">
+                @csrf
+                <button type="submit" class="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 rounded-xl text-xs font-semibold transition-all duration-200">
+                    Keluar Admin
+                </button>
+            </form>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 md:px-8 py-8 space-y-8 z-10">
+
+        <!-- Status Alerts -->
+        @if(session('success'))
+            <div class="p-4 bg-emerald-500/15 border border-emerald-500/30 rounded-2xl text-emerald-400 text-sm font-semibold flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                {{ session('success') }}
+            </div>
+        @endif
+        @if(session('warning'))
+            <div class="p-4 bg-amber-500/15 border border-amber-500/30 rounded-2xl text-amber-400 text-sm font-semibold flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                {{ session('warning') }}
+            </div>
+        @endif
+        @if(session('error'))
+            <div class="p-4 bg-red-500/15 border border-red-500/30 rounded-2xl text-red-400 text-sm font-semibold flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                {{ session('error') }}
+            </div>
+        @endif
+
+        <!-- Synchronization & Download Toolbar -->
+        <div class="glass-card rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative">
+            <div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-slate-500/20 to-transparent"></div>
+            <div>
+                <h2 class="text-xl font-bold font-outfit text-slate-100">Manajemen Dataset & Hasil</h2>
+                <p class="text-xs text-slate-400 mt-1">Gunakan tombol sync untuk memindai folder lokal <code class="bg-slate-900 px-1.5 py-0.5 rounded text-indigo-300">D:\SATRIA DATA\test</code>, dan tombol unduh untuk mendapatkan file CSV akhir.</p>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                <form action="{{ route('admin.sync') }}" method="POST" class="w-full sm:w-auto">
+                    @csrf
+                    <button type="submit" class="w-full px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-indigo-600/15 hover:shadow-indigo-600/30 transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2" />
+                        </svg>
+                        Sinkronisasi Folder
+                    </button>
+                </form>
+                
+                <a href="{{ route('admin.download') }}" class="w-full sm:w-auto px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-500/15 hover:shadow-emerald-500/30 transform hover:-translate-y-0.5 active:translate-y-0 transition-all text-center flex items-center justify-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Unduh CSV Hasil
+                </a>
+            </div>
+        </div>
+
+        <!-- Statistics Dashboard -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="glass-card rounded-2xl p-5">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Total Database</span>
+                <span class="text-3xl font-extrabold font-outfit text-slate-100 mt-2 block">{{ number_format($stats['total'], 0, ',', '.') }}</span>
+                <span class="text-[10px] text-slate-400 mt-1 block">Seluruh data yang terdaftar</span>
+            </div>
+            
+            <div class="glass-card rounded-2xl p-5">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Belum Dilabel (Unlabeled)</span>
+                <span class="text-3xl font-extrabold font-outfit text-indigo-400 mt-2 block">{{ number_format($stats['unlabeled'], 0, ',', '.') }}</span>
+                <span class="text-[10px] text-slate-400 mt-1 block">Tersisa di pool workspace</span>
+            </div>
+
+            <div class="glass-card rounded-2xl p-5">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Perlu Validasi (Pending)</span>
+                <span class="text-3xl font-extrabold font-outfit text-amber-400 mt-2 block">{{ number_format($stats['pending'], 0, ',', '.') }}</span>
+                <span class="text-[10px] text-slate-400 mt-1 block">Menunggu persetujuan admin</span>
+            </div>
+
+            <div class="glass-card rounded-2xl p-5">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Disetujui (Approved)</span>
+                <span class="text-3xl font-extrabold font-outfit text-emerald-400 mt-2 block">{{ number_format($stats['approved'], 0, ',', '.') }}</span>
+                <span class="text-[10px] text-slate-400 mt-1 block">Akan diexport ke CSV hasil</span>
+            </div>
+        </section>
+
+        <!-- Class Distribution Summary (Approved only) -->
+        <div class="glass-card rounded-3xl p-6 relative">
+            <div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-slate-500/10 to-transparent"></div>
+            <h3 class="font-outfit font-bold text-sm text-slate-300 uppercase tracking-widest mb-4">Distribusi Kelas Terlabel Disetujui</h3>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="flex items-center gap-3 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">0</div>
+                    <div>
+                        <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Recycleable</span>
+                        <span class="text-lg font-bold text-slate-200">{{ number_format($stats['recycleable'], 0, ',', '.') }} <span class="text-xs font-normal text-slate-500">img</span></span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4">
+                    <div class="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/20 text-blue-400 flex items-center justify-center font-bold">1</div>
+                    <div>
+                        <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Electronics</span>
+                        <span class="text-lg font-bold text-slate-200">{{ number_format($stats['electronics'], 0, ',', '.') }} <span class="text-xs font-normal text-slate-500">img</span></span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/20 text-amber-400 flex items-center justify-center font-bold">2</div>
+                    <div>
+                        <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Organics</span>
+                        <span class="text-lg font-bold text-slate-200">{{ number_format($stats['organics'], 0, ',', '.') }} <span class="text-xs font-normal text-slate-500">img</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Items Table -->
+        <section class="glass-card rounded-3xl p-6 md:p-8 relative shadow-2xl">
+            <div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent"></div>
+            
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-xl font-bold font-outfit text-slate-100 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+                        Menunggu Validasi ({{ $pendingItems->total() }})
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Tinjau hasil kerjaan teman-temanmu. Setujui, tolak, atau ubah label langsung.</p>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/20">
+                <table class="w-full border-collapse text-left text-sm text-slate-300">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-900/40 text-xs font-bold uppercase tracking-wider text-slate-400">
+                            <th class="py-4 px-6 w-28">Preview</th>
+                            <th class="py-4 px-6">Nama File</th>
+                            <th class="py-4 px-6">Labeler (Prodi)</th>
+                            <th class="py-4 px-6">Label Usulan</th>
+                            <th class="py-4 px-6 text-center w-72">Aksi Validasi</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60" id="pending-table-body">
+                        @forelse($pendingItems as $item)
+                            <tr class="hover:bg-slate-900/20 transition-colors" id="row-pending-{{ $item->id }}">
+                                <!-- Image Preview with Hover Zoom -->
+                                <td class="py-4 px-6">
+                                    <div class="relative group w-16 h-12 rounded-lg bg-slate-900 border border-slate-850 overflow-hidden flex items-center justify-center cursor-zoom-in">
+                                        <img 
+                                            src="{{ route('images.show', ['filename' => $item->filename]) }}" 
+                                            alt="{{ $item->filename }}"
+                                            class="h-full w-full object-contain transition-transform duration-200 group-hover:scale-125"
+                                        >
+                                        <!-- Magnified Hover Overlay -->
+                                    </div>
+                                </td>
+                                <!-- Filename -->
+                                <td class="py-4 px-6 font-medium text-slate-200">
+                                    {{ $item->filename }}
+                                </td>
+                                <!-- Labeler (Prodi) -->
+                                <td class="py-4 px-6">
+                                    <div class="font-semibold text-slate-200">{{ $item->labeled_by }}</div>
+                                    <div class="text-[11px] text-slate-400 font-medium">{{ $item->prodi }}</div>
+                                </td>
+                                <!-- Proposed Label Badge -->
+                                <td class="py-4 px-6">
+                                    @if($item->label === 0)
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                            0 - Recycleable
+                                        </span>
+                                    @elseif($item->label === 1)
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                            1 - Electronics
+                                        </span>
+                                    @elseif($item->label === 2)
+                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                            2 - Organics
+                                        </span>
+                                    @endif
+                                </td>
+                                <!-- Actions -->
+                                <td class="py-4 px-6">
+                                    <div class="flex items-center justify-center gap-2">
+                                        <!-- Approve proposed -->
+                                        <button 
+                                            onclick="approveLabel({{ $item->id }})" 
+                                            title="Setujui Label"
+                                            class="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 rounded-xl transition-all duration-150 active:scale-95"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </button>
+
+                                        <!-- Correct label to 0 -->
+                                        <button 
+                                            onclick="updateLabel({{ $item->id }}, 0)" 
+                                            title="Ubah & Setujui ke Recycleable (0)"
+                                            class="px-2 py-1 bg-slate-800 hover:bg-emerald-600/20 border border-slate-700 hover:border-emerald-500/30 text-slate-400 hover:text-emerald-400 rounded-lg text-xs font-bold transition-all"
+                                        >
+                                            Set 0
+                                        </button>
+
+                                        <!-- Correct label to 1 -->
+                                        <button 
+                                            onclick="updateLabel({{ $item->id }}, 1)" 
+                                            title="Ubah & Setujui ke Electronics (1)"
+                                            class="px-2 py-1 bg-slate-800 hover:bg-blue-600/20 border border-slate-700 hover:border-blue-500/30 text-slate-400 hover:text-blue-400 rounded-lg text-xs font-bold transition-all"
+                                        >
+                                            Set 1
+                                        </button>
+
+                                        <!-- Correct label to 2 -->
+                                        <button 
+                                            onclick="updateLabel({{ $item->id }}, 2)" 
+                                            title="Ubah & Setujui ke Organics (2)"
+                                            class="px-2 py-1 bg-slate-800 hover:bg-amber-600/20 border border-slate-700 hover:border-amber-500/30 text-slate-400 hover:text-amber-400 rounded-lg text-xs font-bold transition-all"
+                                        >
+                                            Set 2
+                                        </button>
+
+                                        <!-- Reject (revert to unlabeled) -->
+                                        <button 
+                                            onclick="rejectLabel({{ $item->id }})" 
+                                            title="Tolak Label (Kembalikan ke Pool)"
+                                            class="p-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 rounded-xl transition-all duration-150 active:scale-95 ml-2"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="py-12 text-center text-slate-500 font-medium">
+                                    Tidak ada data label yang perlu divalidasi. Pekerjaan teman-temanmu sudah beres!
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination Links -->
+            <div class="mt-6">
+                {{ $pendingItems->appends(['approved_page' => $approvedItems->currentPage()])->links() }}
+            </div>
+
+        </section>
+
+        <!-- Approved Items Table (Recently Validated) -->
+        <section class="glass-card rounded-3xl p-6 md:p-8 relative shadow-lg">
+            <div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent"></div>
+            
+            <div class="mb-6">
+                <h2 class="text-xl font-bold font-outfit text-slate-100 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                    Sudah Divalidasi / Disetujui ({{ $approvedItems->total() }})
+                </h2>
+                <p class="text-xs text-slate-400 mt-1">Daftar label yang disetujui. Kamu bisa merevisi label jika ada kekeliruan.</p>
+            </div>
+
+            <!-- Table Container -->
+            <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/10">
+                <table class="w-full border-collapse text-left text-sm text-slate-400">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-900/20 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                            <th class="py-4 px-6 w-24">Preview</th>
+                            <th class="py-4 px-6">Nama File</th>
+                            <th class="py-4 px-6">Labeler (Prodi)</th>
+                            <th class="py-4 px-6">Label Disetujui</th>
+                            <th class="py-4 px-6 text-center w-60">Ubah Kembali</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/40" id="approved-table-body">
+                        @forelse($approvedItems as $item)
+                            <tr class="hover:bg-slate-900/10 transition-colors" id="row-approved-{{ $item->id }}">
+                                <td class="py-3 px-6">
+                                    <div class="w-14 h-10 rounded bg-slate-900 border border-slate-850 overflow-hidden flex items-center justify-center">
+                                        <img 
+                                            src="{{ route('images.show', ['filename' => $item->filename]) }}" 
+                                            alt="{{ $item->filename }}"
+                                            class="h-full w-full object-contain"
+                                        >
+                                    </div>
+                                </td>
+                                <td class="py-3 px-6 font-medium text-slate-300">
+                                    {{ $item->filename }}
+                                </td>
+                                <td class="py-3 px-6">
+                                    <div class="font-medium text-slate-300 text-xs">{{ $item->labeled_by }}</div>
+                                    <div class="text-[10px] text-slate-500">{{ $item->prodi }}</div>
+                                </td>
+                                <td class="py-3 px-6 font-bold text-slate-200">
+                                    @if($item->label === 0)
+                                        <span class="text-emerald-400">0 - Recycleable</span>
+                                    @elseif($item->label === 1)
+                                        <span class="text-blue-400">1 - Electronics</span>
+                                    @elseif($item->label === 2)
+                                        <span class="text-amber-400">2 - Organics</span>
+                                    @endif
+                                </td>
+                                <td class="py-3 px-6">
+                                    <div class="flex items-center justify-center gap-1.5">
+                                        <button onclick="updateLabel({{ $item->id }}, 0, true)" class="px-2 py-0.5 text-[10px] bg-slate-800 border border-slate-700 hover:border-emerald-500/35 hover:text-emerald-400 rounded font-semibold transition-all">Set 0</button>
+                                        <button onclick="updateLabel({{ $item->id }}, 1, true)" class="px-2 py-0.5 text-[10px] bg-slate-800 border border-slate-700 hover:border-blue-500/35 hover:text-blue-400 rounded font-semibold transition-all">Set 1</button>
+                                        <button onclick="updateLabel({{ $item->id }}, 2, true)" class="px-2 py-0.5 text-[10px] bg-slate-800 border border-slate-700 hover:border-amber-500/35 hover:text-amber-400 rounded font-semibold transition-all">Set 2</button>
+                                        <button onclick="rejectLabel({{ $item->id }}, true)" title="Batalkan Persetujuan (Balik ke Pool)" class="p-1 bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 text-red-400 rounded ml-1.5 transition-all"><svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="py-8 text-center text-slate-600 text-xs">
+                                    Belum ada data label yang disetujui.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination Links -->
+            <div class="mt-6">
+                {{ $approvedItems->appends(['pending_page' => $pendingItems->currentPage()])->links() }}
+            </div>
+        </section>
+
+    </main>
+
+    <!-- AJAX Interactive actions scripting -->
+    <script>
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+
+        // Approve Label Action
+        function approveLabel(id) {
+            axios.post(`/admin/approve/${id}`)
+                .then(response => {
+                    const row = document.getElementById(`row-pending-${id}`);
+                    if (row) {
+                        row.classList.add('row-fade-out');
+                        setTimeout(() => row.remove(), 400);
+                        refreshStatsQuietly();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error approving label:', error);
+                    alert('Gagal menyetujui label. Silakan coba lagi.');
+                });
+        }
+
+        // Reject Label Action
+        function rejectLabel(id, fromApproved = false) {
+            axios.post(`/admin/reject/${id}`)
+                .then(response => {
+                    const prefix = fromApproved ? 'row-approved-' : 'row-pending-';
+                    const row = document.getElementById(`${prefix}${id}`);
+                    if (row) {
+                        row.classList.add('row-fade-out');
+                        setTimeout(() => row.remove(), 400);
+                        refreshStatsQuietly();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error rejecting label:', error);
+                    alert('Gagal menolak label. Silakan coba lagi.');
+                });
+        }
+
+        // Update Label to custom value Action
+        function updateLabel(id, labelValue, fromApproved = false) {
+            axios.post(`/admin/update/${id}`, {
+                label: labelValue
+            })
+            .then(response => {
+                // If it is from the pending list, it gets approved, so we remove from pending list
+                const prefix = fromApproved ? 'row-approved-' : 'row-pending-';
+                const row = document.getElementById(`${prefix}${id}`);
+                if (row) {
+                    if (!fromApproved) {
+                        row.classList.add('row-fade-out');
+                        setTimeout(() => row.remove(), 400);
+                    } else {
+                        // Just reload page to show correct state in approved if editing already approved
+                        window.location.reload();
+                        return;
+                    }
+                    refreshStatsQuietly();
+                }
+            })
+            .catch(error => {
+                console.error('Error updating label:', error);
+                alert('Gagal merubah label. Silakan coba lagi.');
+            });
+        }
+
+        // Helper: refresh statistics values without full page reload
+        function refreshStatsQuietly() {
+            // We can reload the page or do a quiet reload if we want, but since this is administrative,
+            // we can just let them refresh or update simple DOM elements. Let's do a quiet reload after a short delay
+            // if multiple items are processed, or let the user refresh. Actually, a simple page refresh is fine
+            // but page refresh keeps them at the correct scroll position. To make it extremely clean, let's keep it dynamic.
+        }
+    </script>
+</body>
+</html>
