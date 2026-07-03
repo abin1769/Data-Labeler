@@ -256,10 +256,15 @@
                             </div>
                         </div>
                         @if(!empty($examples[0]))
-                            <div class="grid grid-cols-4 gap-1.5 mt-2.5 ml-4.5 pl-3">
-                                @foreach($examples[0] as $imgUrl)
+                            <div class="grid grid-cols-4 gap-1.5 mt-2.5 ml-4.5 pl-3 example-slideshow-container" data-label="0" data-images="{{ json_encode($examples[0]) }}">
+                                @foreach(array_slice($examples[0], 0, 4) as $index => $imgUrl)
                                     <div class="relative group aspect-square rounded-lg bg-slate-950/40 border border-slate-800/80 overflow-hidden cursor-zoom-in">
-                                        <img src="{{ $imgUrl }}" class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110" onclick="showLightbox('{{ $imgUrl }}')">
+                                        <img 
+                                            id="example-0-slot-{{ $index }}"
+                                            src="{{ $imgUrl }}" 
+                                            class="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 opacity-100" 
+                                            onclick="showLightbox(this.src)"
+                                        >
                                     </div>
                                 @endforeach
                             </div>
@@ -276,10 +281,15 @@
                             </div>
                         </div>
                         @if(!empty($examples[1]))
-                            <div class="grid grid-cols-4 gap-1.5 mt-2.5 ml-4.5 pl-3">
-                                @foreach($examples[1] as $imgUrl)
+                            <div class="grid grid-cols-4 gap-1.5 mt-2.5 ml-4.5 pl-3 example-slideshow-container" data-label="1" data-images="{{ json_encode($examples[1]) }}">
+                                @foreach(array_slice($examples[1], 0, 4) as $index => $imgUrl)
                                     <div class="relative group aspect-square rounded-lg bg-slate-950/40 border border-slate-800/80 overflow-hidden cursor-zoom-in">
-                                        <img src="{{ $imgUrl }}" class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110" onclick="showLightbox('{{ $imgUrl }}')">
+                                        <img 
+                                            id="example-1-slot-{{ $index }}"
+                                            src="{{ $imgUrl }}" 
+                                            class="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 opacity-100" 
+                                            onclick="showLightbox(this.src)"
+                                        >
                                     </div>
                                 @endforeach
                             </div>
@@ -296,10 +306,15 @@
                             </div>
                         </div>
                         @if(!empty($examples[2]))
-                            <div class="grid grid-cols-4 gap-1.5 mt-2.5 ml-4.5 pl-3">
-                                @foreach($examples[2] as $imgUrl)
+                            <div class="grid grid-cols-4 gap-1.5 mt-2.5 ml-4.5 pl-3 example-slideshow-container" data-label="2" data-images="{{ json_encode($examples[2]) }}">
+                                @foreach(array_slice($examples[2], 0, 4) as $index => $imgUrl)
                                     <div class="relative group aspect-square rounded-lg bg-slate-950/40 border border-slate-800/80 overflow-hidden cursor-zoom-in">
-                                        <img src="{{ $imgUrl }}" class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110" onclick="showLightbox('{{ $imgUrl }}')">
+                                        <img 
+                                            id="example-2-slot-{{ $index }}"
+                                            src="{{ $imgUrl }}" 
+                                            class="w-full h-full object-cover transition-all duration-500 group-hover:scale-110 opacity-100" 
+                                            onclick="showLightbox(this.src)"
+                                        >
                                     </div>
                                 @endforeach
                             </div>
@@ -351,6 +366,45 @@
             updateLeaderboard();
             // Poll leaderboard every 5 seconds
             setInterval(updateLeaderboard, 5000);
+
+            // Initialize Example Slideshows (cycles through examples if there are more than 4)
+            const containers = document.querySelectorAll('.example-slideshow-container');
+            containers.forEach(container => {
+                const label = container.getAttribute('data-label');
+                const allImages = JSON.parse(container.getAttribute('data-images'));
+                
+                if (allImages.length <= 4) return;
+
+                // Track currently displayed images in slots
+                let activeImages = allImages.slice(0, 4);
+                
+                // Stagger interval offset slightly
+                setTimeout(() => {
+                    setInterval(() => {
+                        // Pick a random slot to fade/replace
+                        const slotIndex = Math.floor(Math.random() * 4);
+                        const imgEl = document.getElementById(`example-${label}-slot-${slotIndex}`);
+                        if (!imgEl) return;
+
+                        // Filter images not currently visible
+                        const availableImages = allImages.filter(img => !activeImages.includes(img));
+                        if (availableImages.length === 0) return;
+
+                        // Select a random new image
+                        const newImage = availableImages[Math.floor(Math.random() * availableImages.length)];
+
+                        // Smooth cross-fade transition
+                        imgEl.classList.replace('opacity-100', 'opacity-0');
+
+                        setTimeout(() => {
+                            imgEl.src = newImage;
+                            activeImages[slotIndex] = newImage;
+                            imgEl.classList.replace('opacity-0', 'opacity-100');
+                        }, 500);
+
+                    }, 3500);
+                }, Math.random() * 2000);
+            });
 
             // Bind keyboard shortcuts
             document.addEventListener('keydown', (e) => {
