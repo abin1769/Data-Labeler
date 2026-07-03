@@ -282,9 +282,22 @@ class DatasetController extends Controller
                 'organics' => Image::where('label', 2)->where('label_status', 'approved')->count(),
             ];
 
-            // Get pending items
-            $pendingItems = Image::where('label_status', 'pending')
-                ->orderBy('updated_at', 'asc')
+            // Get unique labeler names that have pending items
+            $pendingLabelers = Image::where('label_status', 'pending')
+                ->whereNotNull('labeled_by')
+                ->distinct()
+                ->pluck('labeled_by')
+                ->toArray();
+
+            // Filter pending items by user if requested
+            $filterUser = $request->query('filter_user');
+            $pendingQuery = Image::where('label_status', 'pending');
+            if ($filterUser) {
+                $pendingQuery->where('labeled_by', $filterUser);
+            }
+
+            // Get pending items (paginated)
+            $pendingItems = $pendingQuery->orderBy('updated_at', 'asc')
                 ->paginate(20, ['*'], 'pending_page');
 
             // Get approved items (for editing if needed)
@@ -314,7 +327,7 @@ class DatasetController extends Controller
                 }
             }
 
-            return view('admin', compact('stats', 'pendingItems', 'approvedItems', 'manualExamples'));
+            return view('admin', compact('stats', 'pendingItems', 'approvedItems', 'manualExamples', 'pendingLabelers', 'filterUser'));
         }
 
         return view('admin_login');
@@ -601,5 +614,27 @@ class DatasetController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Approve all pending labels globally or filtered by user.
+     */
+    public function approveAll(Request $request)
+    {
+        $labeledBy = $request->input('labeled_by');
+
+        $query = Image::where('label_status', 'pending');
+
+        if ($labeledBy) {
+            $query->where('labeled_by', $labeledBy);
+        }
+
+        $approvedCount = $query->update(['label_status' => 'approved']);
+
+        $message = $labeledBy 
+            ? "Berhasil menyetujui {$approvedCount} label dari {$labeledBy} secara massal!"
+            : "Berhasil menyetujui {$approvedCount} seluruh label pending secara massal!";
+
+        return back()->with('success', $message);
     }
 }

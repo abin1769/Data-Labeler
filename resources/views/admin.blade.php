@@ -338,13 +338,56 @@
         <section class="glass-card rounded-3xl p-6 md:p-8 relative shadow-2xl">
             <div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent"></div>
             
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                 <div>
                     <h2 class="text-xl font-bold font-outfit text-slate-100 flex items-center gap-2">
                         <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
                         Menunggu Validasi ({{ $pendingItems->total() }})
                     </h2>
                     <p class="text-xs text-slate-400 mt-1">Tinjau hasil kerjaan teman-temanmu. Setujui, tolak, atau ubah label langsung.</p>
+                </div>
+
+                <!-- Sort, Filter & Mass Approve Toolbar -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <!-- Filter Form -->
+                    <form action="{{ route('admin') }}" method="GET" class="flex items-center gap-2">
+                        <select name="filter_user" onchange="this.form.submit()" class="bg-slate-900 border border-slate-700/60 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium">
+                            <option value="">Semua Labeler (No Filter)</option>
+                            @foreach($pendingLabelers as $labeler)
+                                <option value="{{ $labeler }}" {{ $filterUser == $labeler ? 'selected' : '' }}>
+                                    Filter: {{ $labeler }}
+                                </option>
+                            @endforeach
+                        </select>
+                        @if($filterUser)
+                            <a href="{{ route('admin') }}" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-semibold transition" title="Reset Filter">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </a>
+                        @endif
+                    </form>
+
+                    <!-- Approve All Form -->
+                    <form action="{{ route('admin.approve-all') }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menyetujui semua data ini secara massal?')" class="flex items-center">
+                        @csrf
+                        @if($filterUser)
+                            <input type="hidden" name="labeled_by" value="{{ $filterUser }}">
+                            <button type="submit" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-600/20 transform hover:-translate-y-0.5 active:translate-y-0 transition duration-150 flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Setujui Semua dari "{{ $filterUser }}"
+                            </button>
+                        @else
+                            <button type="submit" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-600/20 transform hover:-translate-y-0.5 active:translate-y-0 transition duration-150 flex items-center gap-1.5">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Setujui Semua (Global)
+                            </button>
+                        @endif
+                    </form>
                 </div>
             </div>
 
@@ -466,7 +509,7 @@
 
             <!-- Pagination Links -->
             <div class="mt-6">
-                {{ $pendingItems->appends(['approved_page' => $approvedItems->currentPage()])->links() }}
+                {{ $pendingItems->appends(['approved_page' => $approvedItems->currentPage(), 'filter_user' => $filterUser])->links() }}
             </div>
 
         </section>
