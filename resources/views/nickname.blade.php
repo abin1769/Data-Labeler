@@ -53,7 +53,7 @@
             <h1 class="text-4xl font-extrabold font-outfit tracking-tight bg-gradient-to-r from-indigo-200 via-slate-100 to-purple-200 bg-clip-text text-transparent">
                 Data Labeler
             </h1>
-            <p class="text-slate-400 mt-2 text-sm font-medium">Bantu kami mengklasifikasikan dataset gambar</p>
+            <p class="text-slate-400 mt-2 text-sm font-medium">Bantu kami mengklasifikasikan dataset gambar. Bantuan anda sangat berarti bagi kami</p>
         </div>
 
         <!-- Nickname Card -->
