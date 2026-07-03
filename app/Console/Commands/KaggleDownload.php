@@ -72,7 +72,8 @@ class KaggleDownload extends Command
             if (!$response->successful()) {
                 $this->output->progressFinish();
                 $this->error("\nGagal mengunduh dataset. Kode Status: " . $response->status());
-                $this->error("Pastikan nama dataset benar dan kredensial API Anda valid.");
+                $this->error("Respon dari Kaggle: " . ($response->json('message') ?: $response->body()));
+                $this->error("Pastikan nama dataset benar, akun Anda memiliki akses ke dataset privat tersebut, dan kredensial API Anda valid.");
                 return 1;
             }
 
