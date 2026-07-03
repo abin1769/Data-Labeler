@@ -707,4 +707,39 @@ class DatasetController extends Controller
 
         return back()->with('success', $message);
     }
+
+    /**
+     * Reject all pending labels (mass reverse to unlabeled pool) globally or filtered by user/search.
+     */
+    public function rejectAllPending(Request $request)
+    {
+        $labeledBy = $request->input('labeled_by');
+        $search = $request->input('search');
+
+        $query = Image::where('label_status', 'pending');
+
+        if ($labeledBy) {
+            $query->where('labeled_by', $labeledBy);
+        }
+        if ($search) {
+            $cleanSearch = str_ireplace(['.jpg', '.jpeg', '.png', '.webp'], '', $search);
+            $query->where(function($q) use ($search, $cleanSearch) {
+                $q->where('filename', 'like', '%' . $search . '%')
+                  ->orWhere('filename', 'like', '%' . $cleanSearch . '%');
+            });
+        }
+
+        $rejectedCount = $query->update([
+            'label' => null,
+            'labeled_by' => null,
+            'prodi' => null,
+            'label_status' => 'unlabeled'
+        ]);
+
+        $message = $labeledBy 
+            ? "Berhasil menolak {$rejectedCount} usulan label dari {$labeledBy} secara massal!"
+            : "Berhasil menolak {$rejectedCount} usulan seluruh label pending secara massal!";
+
+        return back()->with('success', $message);
+    }
 }

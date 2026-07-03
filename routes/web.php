@@ -25,6 +25,7 @@ Route::post('/admin/reject/{id}', [DatasetController::class, 'rejectLabel'])->na
 Route::post('/admin/update/{id}', [DatasetController::class, 'updateLabel'])->name('admin.update');
 Route::post('/admin/approve-all', [DatasetController::class, 'approveAll'])->name('admin.approve-all');
 Route::post('/admin/reject-all', [DatasetController::class, 'rejectAll'])->name('admin.reject-all');
+Route::post('/admin/reject-all-pending', [DatasetController::class, 'rejectAllPending'])->name('admin.reject-all-pending');
 Route::get('/admin/download', [DatasetController::class, 'downloadCsv'])->name('admin.download');
 Route::post('/admin/upload-dataset', [DatasetController::class, 'uploadDataset'])->name('admin.upload-dataset');
 Route::post('/admin/upload-examples', [DatasetController::class, 'uploadExamples'])->name('admin.upload-examples');

@@ -417,6 +417,31 @@
                             @endif
                         </button>
                     </form>
+
+                    <!-- Reject All Pending Form -->
+                    <form action="{{ route('admin.reject-all-pending') }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menolak semua usulan label ini secara massal? Semuanya akan kembali ke pool belum terlabel.')" class="flex items-center">
+                        @csrf
+                        @if($filterUser)
+                            <input type="hidden" name="labeled_by" value="{{ $filterUser }}">
+                        @endif
+                        @if($searchPending)
+                            <input type="hidden" name="search" value="{{ $searchPending }}">
+                        @endif
+                        <button type="submit" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-red-600/20 transform hover:-translate-y-0.5 active:translate-y-0 transition duration-150 flex items-center gap-1.5" title="Kembalikan semua usulan ini ke pool belum terlabel">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            @if($filterUser && $searchPending)
+                                Tolak Semua Cocok
+                            @elseif($filterUser)
+                                Tolak Semua dari "{{ $filterUser }}"
+                            @elseif($searchPending)
+                                Tolak Hasil Pencarian
+                            @else
+                                Tolak Semua (Global)
+                            @endif
+                        </button>
+                    </form>
                 </div>
             </div>
 
