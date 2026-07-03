@@ -349,8 +349,17 @@
 
                 <!-- Sort, Filter & Mass Approve Toolbar -->
                 <div class="flex flex-wrap items-center gap-3">
-                    <!-- Filter Form -->
-                    <form action="{{ route('admin') }}" method="GET" class="flex items-center gap-2">
+                    <!-- Filter & Search Form -->
+                    <form action="{{ route('admin') }}" method="GET" class="flex flex-wrap items-center gap-2">
+                        <!-- Search Box -->
+                        <div class="relative">
+                            <input type="text" name="search_pending" value="{{ $searchPending }}" placeholder="Cari ID / nama file..." class="bg-slate-900 border border-slate-700/60 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium placeholder-slate-500 w-44">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            </div>
+                        </div>
+
+                        <!-- Filter Dropdown -->
                         <select name="filter_user" onchange="this.form.submit()" class="bg-slate-900 border border-slate-700/60 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500 font-medium">
                             <option value="">Semua Labeler (No Filter)</option>
                             @foreach($pendingLabelers as $labeler)
@@ -359,8 +368,14 @@
                                 </option>
                             @endforeach
                         </select>
-                        @if($filterUser)
-                            <a href="{{ route('admin') }}" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-semibold transition" title="Reset Filter">
+
+                        <!-- Cari button -->
+                        <button type="submit" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition">
+                            Cari
+                        </button>
+
+                        @if($filterUser || $searchPending)
+                            <a href="{{ route('admin') }}" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-semibold transition" title="Reset Filter & Pencarian">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
@@ -373,20 +388,24 @@
                         @csrf
                         @if($filterUser)
                             <input type="hidden" name="labeled_by" value="{{ $filterUser }}">
-                            <button type="submit" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-600/20 transform hover:-translate-y-0.5 active:translate-y-0 transition duration-150 flex items-center gap-1.5">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                                Setujui Semua dari "{{ $filterUser }}"
-                            </button>
-                        @else
-                            <button type="submit" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-600/20 transform hover:-translate-y-0.5 active:translate-y-0 transition duration-150 flex items-center gap-1.5">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                                Setujui Semua (Global)
-                            </button>
                         @endif
+                        @if($searchPending)
+                            <input type="hidden" name="search" value="{{ $searchPending }}">
+                        @endif
+                        <button type="submit" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-emerald-600/20 transform hover:-translate-y-0.5 active:translate-y-0 transition duration-150 flex items-center gap-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            @if($filterUser && $searchPending)
+                                Setujui Semua Cocok
+                            @elseif($filterUser)
+                                Setujui Semua dari "{{ $filterUser }}"
+                            @elseif($searchPending)
+                                Setujui Hasil Pencarian
+                            @else
+                                Setujui Semua (Global)
+                            @endif
+                        </button>
                     </form>
                 </div>
             </div>
@@ -509,7 +528,7 @@
 
             <!-- Pagination Links -->
             <div class="mt-6">
-                {{ $pendingItems->appends(['approved_page' => $approvedItems->currentPage(), 'filter_user' => $filterUser])->links() }}
+                {{ $pendingItems->appends(['approved_page' => $approvedItems->currentPage(), 'filter_user' => $filterUser, 'search_pending' => $searchPending])->links() }}
             </div>
 
         </section>
@@ -518,12 +537,76 @@
         <section class="glass-card rounded-3xl p-6 md:p-8 relative shadow-lg">
             <div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent"></div>
             
-            <div class="mb-6">
-                <h2 class="text-xl font-bold font-outfit text-slate-100 flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                    Sudah Divalidasi / Disetujui ({{ $approvedItems->total() }})
-                </h2>
-                <p class="text-xs text-slate-400 mt-1">Daftar label yang disetujui. Kamu bisa merevisi label jika ada kekeliruan.</p>
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-xl font-bold font-outfit text-slate-100 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                        Sudah Divalidasi / Disetujui ({{ $approvedItems->total() }})
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Daftar label yang disetujui. Kamu bisa merevisi label jika ada kekeliruan.</p>
+                </div>
+
+                <!-- Sort, Filter & Mass Revert Toolbar -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <!-- Filter & Search Form -->
+                    <form action="{{ route('admin') }}" method="GET" class="flex flex-wrap items-center gap-2">
+                        <!-- Search Box -->
+                        <div class="relative">
+                            <input type="text" name="search_approved" value="{{ $searchApproved }}" placeholder="Cari ID / nama file..." class="bg-slate-900 border border-slate-700/60 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium placeholder-slate-500 w-44">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="h-3.5 w-3.5 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                            </div>
+                        </div>
+
+                        <!-- Filter Dropdown -->
+                        <select name="filter_approved_user" onchange="this.form.submit()" class="bg-slate-900 border border-slate-700/60 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium">
+                            <option value="">Semua Labeler (No Filter)</option>
+                            @foreach($approvedLabelers as $labeler)
+                                <option value="{{ $labeler }}" {{ $filterApprovedUser == $labeler ? 'selected' : '' }}>
+                                    Filter: {{ $labeler }}
+                                </option>
+                            @endforeach
+                        </select>
+
+                        <!-- Cari button -->
+                        <button type="submit" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition">
+                            Cari
+                        </button>
+
+                        @if($filterApprovedUser || $searchApproved)
+                            <a href="{{ route('admin') }}" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded-xl text-xs font-semibold transition" title="Reset Filter & Pencarian">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </a>
+                        @endif
+                    </form>
+
+                    <!-- Reject All Form (Mass Revert to Pool) -->
+                    <form action="{{ route('admin.reject-all') }}" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin membatalkan semua persetujuan data ini secara massal? Semuanya akan kembali ke pool belum terlabel.')" class="flex items-center">
+                        @csrf
+                        @if($filterApprovedUser)
+                            <input type="hidden" name="labeled_by" value="{{ $filterApprovedUser }}">
+                        @endif
+                        @if($searchApproved)
+                            <input type="hidden" name="search" value="{{ $searchApproved }}">
+                        @endif
+                        <button type="submit" class="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow-lg shadow-red-600/20 transform hover:-translate-y-0.5 active:translate-y-0 transition duration-150 flex items-center gap-1.5" title="Kembalikan semua ke unlabeled pool">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H18.2" />
+                            </svg>
+                            @if($filterApprovedUser && $searchApproved)
+                                Batalkan Semua Cocok
+                            @elseif($filterApprovedUser)
+                                Batalkan Semua dari "{{ $filterApprovedUser }}"
+                            @elseif($searchApproved)
+                                Batalkan Hasil Pencarian
+                            @else
+                                Batalkan Semua (Global)
+                            @endif
+                        </button>
+                    </form>
+                </div>
             </div>
 
             <!-- Table Container -->
@@ -588,7 +671,7 @@
 
             <!-- Pagination Links -->
             <div class="mt-6">
-                {{ $approvedItems->appends(['pending_page' => $pendingItems->currentPage()])->links() }}
+                {{ $approvedItems->appends(['pending_page' => $pendingItems->currentPage(), 'filter_approved_user' => $filterApprovedUser, 'search_approved' => $searchApproved])->links() }}
             </div>
         </section>
 

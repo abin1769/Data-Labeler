@@ -289,20 +289,48 @@ class DatasetController extends Controller
                 ->pluck('labeled_by')
                 ->toArray();
 
-            // Filter pending items by user if requested
+            // Get unique labeler names that have approved items
+            $approvedLabelers = Image::where('label_status', 'approved')
+                ->whereNotNull('labeled_by')
+                ->distinct()
+                ->pluck('labeled_by')
+                ->toArray();
+
+            // PENDING QUERY (with Filter & Search)
             $filterUser = $request->query('filter_user');
+            $searchPending = $request->query('search_pending');
+            
             $pendingQuery = Image::where('label_status', 'pending');
             if ($filterUser) {
                 $pendingQuery->where('labeled_by', $filterUser);
             }
-
-            // Get pending items (paginated)
+            if ($searchPending) {
+                // Remove potential .jpg extension to search by ID or filename
+                $cleanSearchPending = str_ireplace(['.jpg', '.jpeg', '.png', '.webp'], '', $searchPending);
+                $pendingQuery->where(function($q) use ($searchPending, $cleanSearchPending) {
+                    $q->where('filename', 'like', '%' . $searchPending . '%')
+                      ->orWhere('filename', 'like', '%' . $cleanSearchPending . '%');
+                });
+            }
             $pendingItems = $pendingQuery->orderBy('updated_at', 'asc')
                 ->paginate(20, ['*'], 'pending_page');
 
-            // Get approved items (for editing if needed)
-            $approvedItems = Image::where('label_status', 'approved')
-                ->orderBy('updated_at', 'desc')
+            // APPROVED QUERY (with Filter & Search)
+            $filterApprovedUser = $request->query('filter_approved_user');
+            $searchApproved = $request->query('search_approved');
+
+            $approvedQuery = Image::where('label_status', 'approved');
+            if ($filterApprovedUser) {
+                $approvedQuery->where('labeled_by', $filterApprovedUser);
+            }
+            if ($searchApproved) {
+                $cleanSearchApproved = str_ireplace(['.jpg', '.jpeg', '.png', '.webp'], '', $searchApproved);
+                $approvedQuery->where(function($q) use ($searchApproved, $cleanSearchApproved) {
+                    $q->where('filename', 'like', '%' . $searchApproved . '%')
+                      ->orWhere('filename', 'like', '%' . $cleanSearchApproved . '%');
+                });
+            }
+            $approvedItems = $approvedQuery->orderBy('updated_at', 'desc')
                 ->paginate(20, ['*'], 'approved_page');
 
             // Get manual examples list for admin to delete/manage
@@ -327,7 +355,11 @@ class DatasetController extends Controller
                 }
             }
 
-            return view('admin', compact('stats', 'pendingItems', 'approvedItems', 'manualExamples', 'pendingLabelers', 'filterUser'));
+            return view('admin', compact(
+                'stats', 'pendingItems', 'approvedItems', 'manualExamples', 
+                'pendingLabelers', 'filterUser', 'searchPending',
+                'approvedLabelers', 'filterApprovedUser', 'searchApproved'
+            ));
         }
 
         return view('admin_login');
@@ -617,16 +649,24 @@ class DatasetController extends Controller
     }
 
     /**
-     * Approve all pending labels globally or filtered by user.
+     * Approve all pending labels globally or filtered by user/search.
      */
     public function approveAll(Request $request)
     {
         $labeledBy = $request->input('labeled_by');
+        $search = $request->input('search');
 
         $query = Image::where('label_status', 'pending');
 
         if ($labeledBy) {
             $query->where('labeled_by', $labeledBy);
+        }
+        if ($search) {
+            $cleanSearch = str_ireplace(['.jpg', '.jpeg', '.png', '.webp'], '', $search);
+            $query->where(function($q) use ($search, $cleanSearch) {
+                $q->where('filename', 'like', '%' . $search . '%')
+                  ->orWhere('filename', 'like', '%' . $cleanSearch . '%');
+            });
         }
 
         $approvedCount = $query->update(['label_status' => 'approved']);
@@ -634,6 +674,41 @@ class DatasetController extends Controller
         $message = $labeledBy 
             ? "Berhasil menyetujui {$approvedCount} label dari {$labeledBy} secara massal!"
             : "Berhasil menyetujui {$approvedCount} seluruh label pending secara massal!";
+
+        return back()->with('success', $message);
+    }
+
+    /**
+     * Reject all approved labels (mass reverse to unlabeled pool) globally or filtered by user/search.
+     */
+    public function rejectAll(Request $request)
+    {
+        $labeledBy = $request->input('labeled_by');
+        $search = $request->input('search');
+
+        $query = Image::where('label_status', 'approved');
+
+        if ($labeledBy) {
+            $query->where('labeled_by', $labeledBy);
+        }
+        if ($search) {
+            $cleanSearch = str_ireplace(['.jpg', '.jpeg', '.png', '.webp'], '', $search);
+            $query->where(function($q) use ($search, $cleanSearch) {
+                $q->where('filename', 'like', '%' . $search . '%')
+                  ->orWhere('filename', 'like', '%' . $cleanSearch . '%');
+            });
+        }
+
+        $rejectedCount = $query->update([
+            'label' => null,
+            'labeled_by' => null,
+            'prodi' => null,
+            'label_status' => 'unlabeled'
+        ]);
+
+        $message = $labeledBy 
+            ? "Berhasil membatalkan persetujuan {$rejectedCount} label dari {$labeledBy} secara massal!"
+            : "Berhasil membatalkan persetujuan {$rejectedCount} seluruh label secara massal!";
 
         return back()->with('success', $message);
     }
