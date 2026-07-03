@@ -148,14 +148,10 @@ class DatasetController extends Controller
             abort(404, 'Image not found in dataset folder.');
         }
 
-        $file = File::get($filePath);
-        $type = File::mimeType($filePath) ?: 'image/jpeg';
-
-        $response = Response::make($file, 200);
-        $response->header("Content-Type", $type);
-        $response->header("Cache-Control", "public, max-age=86400"); // Cache for 1 day
-
-        return $response;
+        // Stream file directly (much faster and memory-friendly)
+        return response()->file($filePath, [
+            'Cache-Control' => 'public, max-age=86400, must-revalidate',
+        ]);
     }
 
     /**
