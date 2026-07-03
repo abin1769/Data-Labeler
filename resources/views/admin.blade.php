@@ -429,7 +429,7 @@
                                 <td class="py-4 px-6">
                                     <div class="relative group w-16 h-12 rounded-lg bg-slate-900 border border-slate-850 overflow-hidden flex items-center justify-center cursor-zoom-in">
                                         <img 
-                                            src="{{ route('images.show', ['filename' => $item->filename]) }}" 
+                                            src="{{ $item->url }}" 
                                             alt="{{ $item->filename }}"
                                             class="h-full w-full object-contain transition-transform duration-200 group-hover:scale-125"
                                         >
@@ -627,7 +627,7 @@
                                 <td class="py-3 px-6">
                                     <div class="w-14 h-10 rounded bg-slate-900 border border-slate-850 overflow-hidden flex items-center justify-center">
                                         <img 
-                                            src="{{ route('images.show', ['filename' => $item->filename]) }}" 
+                                            src="{{ $item->url }}" 
                                             alt="{{ $item->filename }}"
                                             class="h-full w-full object-contain"
                                         >

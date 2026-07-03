@@ -164,12 +164,16 @@ class DatasetController extends Controller
             return response()->json(['error' => 'Nickname not set'], 403);
         }
 
-        // Calculate statistics (using fast indexed counts)
-        $totalLeft = Image::where('label_status', 'unlabeled')->count();
-        $totalLabeled = Image::whereIn('label_status', ['pending', 'approved'])->count();
-        $userLabeled = Image::where('labeled_by', $nickname)
-            ->whereIn('label_status', ['pending', 'approved'])
-            ->count();
+        // Calculate all statistics in a single highly optimized SQL query
+        $stats = Image::selectRaw("
+            COUNT(CASE WHEN label_status = 'unlabeled' THEN 1 END) as total_left,
+            COUNT(CASE WHEN label_status IN ('pending', 'approved') THEN 1 END) as total_labeled,
+            COUNT(CASE WHEN labeled_by = ? AND label_status IN ('pending', 'approved') THEN 1 END) as user_labeled
+        ", [$nickname])->first();
+
+        $totalLeft = (int) $stats->total_left;
+        $totalLabeled = (int) $stats->total_labeled;
+        $userLabeled = (int) $stats->user_labeled;
 
         // Fetch one random unlabeled image using skip-offset (extremely fast on Postgres compared to inRandomOrder)
         $image = null;
@@ -194,7 +198,7 @@ class DatasetController extends Controller
             'image' => [
                 'id' => $image->id,
                 'filename' => $image->filename,
-                'url' => route('images.show', ['filename' => $image->filename])
+                'url' => $image->url
             ],
             'total_left' => $totalLeft,
             'total_labeled' => $totalLabeled,
