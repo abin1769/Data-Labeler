@@ -40,8 +40,16 @@ class KaggleDownload extends Command
 
         $this->info("Menghubungi Kaggle API untuk mengunduh dataset: {$dataset}...");
 
-        // Endpoint download dataset Kaggle
-        $url = "https://www.kaggle.com/api/v1/datasets/download/{$dataset}";
+        // Deteksi apakah ini dataset biasa atau kompetisi
+        if (str_contains($dataset, '/')) {
+            // Standard dataset: owner/dataset-name
+            $url = "https://www.kaggle.com/api/v1/datasets/download/{$dataset}";
+            $this->info("Mendeteksi tipe: Kaggle Dataset");
+        } else {
+            // Competition dataset: competition-name
+            $url = "https://www.kaggle.com/api/v1/competitions/data/download-all/{$dataset}";
+            $this->info("Mendeteksi tipe: Kaggle Competition");
+        }
 
         // Tentukan path penyimpanan zip sementara
         $tempDir = storage_path('app/temp');
