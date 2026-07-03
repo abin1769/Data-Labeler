@@ -139,10 +139,15 @@
         </div>
 
         <!-- Info / Admin Link -->
-        <div class="text-center mt-6">
-            <a href="{{ route('admin') }}" class="text-slate-500 hover:text-indigo-400 text-xs font-semibold uppercase tracking-wider transition-colors duration-200">
-                Masuk sebagai Admin &rarr;
-            </a>
+        <div class="text-center mt-6 space-y-4">
+            <div>
+                <a href="{{ route('admin') }}" class="text-slate-500 hover:text-indigo-400 text-xs font-semibold uppercase tracking-wider transition-colors duration-200">
+                    Masuk sebagai Admin &rarr;
+                </a>
+            </div>
+            <div class="text-[11px] text-slate-500 font-medium tracking-wide">
+                &copy; 2026 &bull; Tim BDC Satria Data Universitas Jambi
+            </div>
         </div>
     </div>
 

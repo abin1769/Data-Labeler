@@ -330,6 +330,10 @@
 
         </section>
 
+        <!-- Footer Copyright -->
+        <footer class="text-center pb-8 mt-4 text-[11px] text-slate-500 font-medium tracking-wide">
+            &copy; 2026 &bull; Tim BDC Satria Data Universitas Jambi
+        </footer>
     </main>
 
     <!-- Interactive JS Script -->
