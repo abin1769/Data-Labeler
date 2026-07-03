@@ -104,7 +104,7 @@
             <form action="{{ route('nickname.logout') }}" method="POST" class="inline">
                 @csrf
                 <button type="submit" class="text-xs font-semibold text-slate-400 hover:text-red-400 transition-colors duration-200">
-                    Ganti Nama
+                    Keluar
                 </button>
             </form>
         </div>
@@ -329,12 +329,12 @@
             </div>
 
         </section>
-
-        <!-- Footer Copyright -->
-        <footer class="text-center pb-8 mt-4 text-[11px] text-slate-500 font-medium tracking-wide">
-            &copy; 2026 &bull; Tim BDC Satria Data Universitas Jambi
-        </footer>
     </main>
+
+    <!-- Footer Copyright -->
+    <footer class="text-center pb-8 mt-4 text-[11px] text-slate-500 font-medium tracking-wide z-10">
+        &copy; 2026 &bull; Tim BDC Satria Data Universitas Jambi
+    </footer>
 
     <!-- Interactive JS Script -->
     <script>

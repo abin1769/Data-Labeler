@@ -168,17 +168,21 @@ class DatasetController extends Controller
             return response()->json(['error' => 'Nickname not set'], 403);
         }
 
-        // Fetch one random unlabeled image
-        $image = Image::where('label_status', 'unlabeled')
-            ->inRandomOrder()
-            ->first();
-
-        // Calculate statistics
+        // Calculate statistics (using fast indexed counts)
         $totalLeft = Image::where('label_status', 'unlabeled')->count();
         $totalLabeled = Image::whereIn('label_status', ['pending', 'approved'])->count();
         $userLabeled = Image::where('labeled_by', $nickname)
             ->whereIn('label_status', ['pending', 'approved'])
             ->count();
+
+        // Fetch one random unlabeled image using skip-offset (extremely fast on Postgres compared to inRandomOrder)
+        $image = null;
+        if ($totalLeft > 0) {
+            $offset = rand(0, $totalLeft - 1);
+            $image = Image::where('label_status', 'unlabeled')
+                ->skip($offset)
+                ->first();
+        }
 
         if (!$image) {
             return response()->json([
