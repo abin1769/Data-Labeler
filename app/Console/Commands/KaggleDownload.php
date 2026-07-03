@@ -29,8 +29,8 @@ class KaggleDownload extends Command
     public function handle()
     {
         $dataset = $this->argument('dataset');
-        $username = env('KAGGLE_USERNAME');
-        $key = env('KAGGLE_KEY');
+        $username = config('services.kaggle.username');
+        $key = config('services.kaggle.key');
 
         if (!$username || !$key) {
             $this->error('Kredensial Kaggle belum diatur di file .env!');

@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'kaggle' => [
+        'username' => env('KAGGLE_USERNAME'),
+        'key' => env('KAGGLE_KEY'),
+    ],
+
 ];
