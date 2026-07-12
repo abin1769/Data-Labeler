@@ -80,7 +80,10 @@
             <a href="{{ route('home') }}" class="text-xs font-semibold text-slate-300 hover:text-indigo-400 transition-colors duration-200">
                 Workspace Label
             </a>
-            
+            <a href="{{ route('admin.audit') }}" class="text-xs font-semibold text-slate-300 hover:text-amber-400 transition-colors duration-200">
+                Audit Label
+            </a>
+
             <form action="{{ route('admin.logout') }}" method="POST" class="inline">
                 @csrf
                 <button type="submit" class="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 rounded-xl text-xs font-semibold transition-all duration-200">
