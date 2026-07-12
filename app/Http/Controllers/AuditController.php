@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditCandidate;
+use App\Models\WorkspaceSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -24,13 +25,46 @@ use ZipArchive;
  */
 class AuditController extends Controller
 {
+    private function getWorkspaceSetting(): WorkspaceSetting
+    {
+        $setting = WorkspaceSetting::query()->first();
+
+        if ($setting) {
+            return $setting;
+        }
+
+        return WorkspaceSetting::create([
+            'active_activity' => WorkspaceSetting::ACTIVE_LABELING,
+            'access_passkey' => strtoupper(bin2hex(random_bytes(4))),
+        ]);
+    }
+
+    private function isAuditAccessValid(Request $request): bool
+    {
+        $setting = $this->getWorkspaceSetting();
+        $sessionPasskey = (string) $request->session()->get('workspace_passkey', '');
+
+        return $sessionPasskey !== ''
+            && hash_equals((string) $setting->access_passkey, $sessionPasskey)
+            && $setting->active_activity === WorkspaceSetting::ACTIVE_AUDIT;
+    }
+
+    private function deniedAuditResponse(Request $request, string $message)
+    {
+        if ($request->expectsJson()) {
+            return response()->json(['error' => $message], 403);
+        }
+
+        return redirect()->route('home')->with('error', $message);
+    }
+
     /**
      * Halaman putaran 1: tinjau kandidat, putuskan A/B/C/D.
      */
     public function index(Request $request)
     {
-        if (!$request->session()->has('nickname')) {
-            return redirect()->route('home');
+        if (!$request->session()->has('nickname') || !$this->isAuditAccessValid($request)) {
+            return redirect()->route('home')->with('error', 'Workspace audit belum aktif atau passkey sudah tidak valid.');
         }
 
         return view('audit', [
@@ -45,8 +79,8 @@ class AuditController extends Controller
      */
     public function relabelIndex(Request $request)
     {
-        if (!$request->session()->has('nickname')) {
-            return redirect()->route('home');
+        if (!$request->session()->has('nickname') || !$this->isAuditAccessValid($request)) {
+            return redirect()->route('home')->with('error', 'Workspace audit belum aktif atau passkey sudah tidak valid.');
         }
 
         return view('audit_relabel', [
@@ -85,10 +119,11 @@ class AuditController extends Controller
      */
     public function getNextCandidate(Request $request)
     {
-        $nickname = $request->session()->get('nickname');
-        if (!$nickname) {
-            return response()->json(['error' => 'Nickname not set'], 403);
+        if (!$this->isAuditAccessValid($request)) {
+            return $this->deniedAuditResponse($request, 'Workspace audit belum aktif atau passkey sudah tidak valid.');
         }
+
+        $nickname = $request->session()->get('nickname');
 
         $stats = AuditCandidate::selectRaw("
             COUNT(CASE WHEN round1_decision IS NULL THEN 1 END) as total_left,
@@ -126,10 +161,11 @@ class AuditController extends Controller
      */
     public function submitDecision(Request $request)
     {
-        $nickname = $request->session()->get('nickname');
-        if (!$nickname) {
-            return response()->json(['error' => 'Sesi Anda telah berakhir, silakan muat ulang halaman.'], 403);
+        if (!$this->isAuditAccessValid($request)) {
+            return $this->deniedAuditResponse($request, 'Workspace audit belum aktif atau passkey sudah tidak valid.');
         }
+
+        $nickname = $request->session()->get('nickname');
 
         $request->validate([
             'candidate_id' => 'required|exists:audit_candidates,id',
@@ -177,10 +213,11 @@ class AuditController extends Controller
      */
     public function getNextRelabel(Request $request)
     {
-        $nickname = $request->session()->get('nickname');
-        if (!$nickname) {
-            return response()->json(['error' => 'Nickname not set'], 403);
+        if (!$this->isAuditAccessValid($request)) {
+            return $this->deniedAuditResponse($request, 'Workspace audit belum aktif atau passkey sudah tidak valid.');
         }
+
+        $nickname = $request->session()->get('nickname');
 
         $base = AuditCandidate::where('round1_decision', 'A')->whereNull('round2_decision');
 
@@ -215,10 +252,11 @@ class AuditController extends Controller
      */
     public function submitRelabel(Request $request)
     {
-        $nickname = $request->session()->get('nickname');
-        if (!$nickname) {
-            return response()->json(['error' => 'Sesi Anda telah berakhir, silakan muat ulang halaman.'], 403);
+        if (!$this->isAuditAccessValid($request)) {
+            return $this->deniedAuditResponse($request, 'Workspace audit belum aktif atau passkey sudah tidak valid.');
         }
+
+        $nickname = $request->session()->get('nickname');
 
         $validOptions = array_merge(array_keys(AuditCandidate::CLASS_OPTIONS), [AuditCandidate::CONTAMINATION_DECISION]);
 

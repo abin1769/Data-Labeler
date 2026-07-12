@@ -31,6 +31,8 @@ Route::get('/admin/download', [DatasetController::class, 'downloadCsv'])->name('
 Route::post('/admin/upload-dataset', [DatasetController::class, 'uploadDataset'])->name('admin.upload-dataset');
 Route::post('/admin/upload-examples', [DatasetController::class, 'uploadExamples'])->name('admin.upload-examples');
 Route::post('/admin/delete-example', [DatasetController::class, 'deleteExample'])->name('admin.delete-example');
+Route::post('/admin/workspace/settings', [DatasetController::class, 'updateWorkspaceSettings'])->name('admin.workspace-settings');
+Route::post('/admin/workspace/passkey', [DatasetController::class, 'regenerateWorkspacePasskey'])->name('admin.workspace-passkey');
 
 // Audit routes -- putaran review kandidat salah-label (hasil scripts/audit_data.py)
 Route::get('/audit', [AuditController::class, 'index'])->name('audit.index');

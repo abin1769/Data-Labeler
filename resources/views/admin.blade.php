@@ -122,6 +122,38 @@
             </div>
         @endif
 
+        <div class="glass-card rounded-3xl p-6 shadow-xl relative">
+            <div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-slate-500/20 to-transparent"></div>
+            <div class="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+                <div>
+                    <h2 class="text-xl font-bold font-outfit text-slate-100">Kontrol Workspace</h2>
+                    <p class="text-xs text-slate-400 mt-1">Atur passkey dan pilih activity yang sedang dibuka. Saat mode audit aktif, user hanya bisa masuk audit; saat mode labeling aktif, user diarahkan ke workspace labeling.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 text-xs">
+                    <span class="px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-slate-300">Mode aktif: <b class="text-white">{{ $workspaceSetting->active_activity ?? 'labeling' }}</b></span>
+                    <span class="px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-slate-300">Passkey aktif: <b class="text-white font-mono">{{ $workspaceSetting->access_passkey ?? '-' }}</b></span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+                <form action="{{ route('admin.workspace-settings') }}" method="POST" class="glass-card rounded-2xl p-4 space-y-3">
+                    @csrf
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Aktivitas yang dibuka</label>
+                    <select name="active_activity" class="w-full bg-slate-900 border border-slate-700/60 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium">
+                        <option value="labeling" @selected(($workspaceSetting->active_activity ?? 'labeling') === 'labeling')>Labeling</option>
+                        <option value="audit" @selected(($workspaceSetting->active_activity ?? 'labeling') === 'audit')>Audit</option>
+                    </select>
+                    <button type="submit" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all">Simpan Mode Aktif</button>
+                </form>
+
+                <form action="{{ route('admin.workspace-passkey') }}" method="POST" class="glass-card rounded-2xl p-4 space-y-3">
+                    @csrf
+                    <p class="text-xs text-slate-400">Generate passkey baru kalau ingin mengganti akses user. Setelah itu, bagikan passkey terbaru ke user yang boleh mengakses workspace.</p>
+                    <button type="submit" class="w-full py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold transition-all">Generate Passkey Baru</button>
+                </form>
+            </div>
+        </div>
+
         <!-- Synchronization & Download Toolbar -->
         <div class="glass-card rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative">
             <div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-slate-500/20 to-transparent"></div>
@@ -343,6 +375,31 @@
                         <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Organics</span>
                         <span class="text-lg font-bold text-slate-200">{{ number_format($stats['organics'], 0, ',', '.') }} <span class="text-xs font-normal text-slate-500">img</span></span>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card rounded-3xl p-6 relative">
+            <div class="absolute -top-px left-8 right-8 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent"></div>
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h3 class="font-outfit font-bold text-sm text-slate-300 uppercase tracking-widest">Audit Snapshot</h3>
+                    <p class="text-xs text-slate-400 mt-1">Ringkasan singkat aktivitas audit untuk memastikan panel labeling dan audit tetap terlihat dalam satu halaman admin.</p>
+                </div>
+                <a href="{{ route('admin.audit') }}" class="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold transition-all text-center">Buka Panel Audit</a>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+                <div class="bg-slate-900/50 rounded-2xl p-4">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Total Kandidat Audit</span>
+                    <span class="text-3xl font-extrabold font-outfit text-slate-100 mt-2 block">{{ number_format($stats['audit_total'] ?? 0, 0, ',', '.') }}</span>
+                </div>
+                <div class="bg-slate-900/50 rounded-2xl p-4">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Belum Ditinjau</span>
+                    <span class="text-3xl font-extrabold font-outfit text-amber-300 mt-2 block">{{ number_format($stats['audit_round1_pending'] ?? 0, 0, ',', '.') }}</span>
+                </div>
+                <div class="bg-slate-900/50 rounded-2xl p-4">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Belum Direlabel</span>
+                    <span class="text-3xl font-extrabold font-outfit text-red-300 mt-2 block">{{ number_format($stats['audit_round2_pending'] ?? 0, 0, ',', '.') }}</span>
                 </div>
             </div>
         </div>

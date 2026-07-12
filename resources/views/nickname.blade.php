@@ -65,6 +65,38 @@
                 
                 <div class="space-y-4">
                     <div>
+                        <label for="passkey" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                            Passkey dari Admin
+                        </label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 8a6 6 0 10-11.998-.125L6 8v1H5a1 1 0 000 2h1v2H5a1 1 0 100 2h1v1a1 1 0 001 1h2a1 1 0 100-2H8v-1h2a1 1 0 100-2H8v-2h1a1 1 0 100-2H8V8a4 4 0 118 0v1h-1a1 1 0 100 2h1v2h-1a1 1 0 100 2h1v1a1 1 0 001 1h2a1 1 0 100-2h-2v-1h1a1 1 0 100-2h-1v-2h1a1 1 0 100-2h-1V8z" clip-rule="evenodd" />
+                                </svg>
+                            </span>
+                            <input 
+                                type="password" 
+                                name="passkey" 
+                                id="passkey" 
+                                required
+                                maxlength="50"
+                                placeholder="Masukkan passkey aktif" 
+                                value="{{ old('passkey') }}"
+                                class="w-full bg-slate-900/60 border border-slate-700/60 rounded-xl py-3.5 pl-12 pr-4 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 font-medium"
+                                autocomplete="off"
+                            >
+                        </div>
+                        @error('passkey')
+                            <p class="text-red-400 text-xs mt-2 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                {{ $message }}
+                            </p>
+                        @enderror
+                    </div>
+
+                    <div>
                         <label for="nickname" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
                             Masukkan Nama / Nickname Kamu
                         </label>
@@ -133,7 +165,7 @@
                     type="submit" 
                     class="w-full py-4 px-6 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white rounded-xl font-semibold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/35 transform hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
                 >
-                    Mulai Melabel Gambar
+                    Masuk ke Workspace Aktif
                 </button>
             </form>
         </div>

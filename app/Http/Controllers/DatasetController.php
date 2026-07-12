@@ -3,15 +3,57 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditCandidate;
 use App\Models\Image;
+use App\Models\WorkspaceSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Str;
 use ZipArchive;
 
 class DatasetController extends Controller
 {
+    private function getWorkspaceSetting(): WorkspaceSetting
+    {
+        $setting = WorkspaceSetting::query()->first();
+
+        if ($setting) {
+            return $setting;
+        }
+
+        return WorkspaceSetting::create([
+            'active_activity' => WorkspaceSetting::ACTIVE_LABELING,
+            'access_passkey' => strtoupper(Str::random(8)),
+        ]);
+    }
+
+    private function isWorkspaceAccessValid(Request $request, ?string $expectedActivity = null): bool
+    {
+        $setting = $this->getWorkspaceSetting();
+        $sessionPasskey = (string) $request->session()->get('workspace_passkey', '');
+
+        if ($sessionPasskey === '' || !hash_equals((string) $setting->access_passkey, $sessionPasskey)) {
+            return false;
+        }
+
+        if ($expectedActivity !== null && $setting->active_activity !== $expectedActivity) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function deniedWorkspaceResponse(Request $request, string $message)
+    {
+        if ($request->expectsJson()) {
+            return response()->json(['error' => $message], 403);
+        }
+
+        return redirect()->route('home')->with('error', $message);
+    }
+
     /**
      * Get the dataset path from configuration.
      */
@@ -31,7 +73,9 @@ class DatasetController extends Controller
      */
     public function index(Request $request)
     {
-        if ($request->session()->has('nickname')) {
+        $setting = $this->getWorkspaceSetting();
+
+        if ($request->session()->has('nickname') && $this->isWorkspaceAccessValid($request, WorkspaceSetting::ACTIVE_LABELING)) {
             $examples = [
                 0 => [],
                 1 => [],
@@ -88,11 +132,23 @@ class DatasetController extends Controller
             return view('label', [
                 'nickname' => $request->session()->get('nickname'),
                 'prodi' => $request->session()->get('prodi'),
-                'examples' => $examples
+                'examples' => $examples,
+                'passkey' => $setting->access_passkey,
             ]);
         }
 
-        return view('nickname');
+        if ($request->session()->has('nickname') && $this->isWorkspaceAccessValid($request, WorkspaceSetting::ACTIVE_AUDIT)) {
+            return redirect()->route('audit.index');
+        }
+
+        if ($request->session()->has('nickname')) {
+            $request->session()->forget(['nickname', 'prodi', 'workspace_passkey']);
+        }
+
+        return view('nickname', [
+            'passkey' => $setting->access_passkey,
+            'activeActivity' => $setting->active_activity,
+        ]);
     }
 
     /**
@@ -100,19 +156,32 @@ class DatasetController extends Controller
      */
     public function setNickname(Request $request)
     {
+        $setting = $this->getWorkspaceSetting();
+
         $request->validate([
+            'passkey' => 'required|string|max:50',
             'nickname' => 'required|string|max:50|regex:/^[a-zA-Z0-9_\s\-]+$/',
             'prodi' => 'required|string|max:100|regex:/^[a-zA-Z0-9_\s\-\.]+$/'
         ], [
+            'passkey.required' => 'Passkey wajib diisi.',
             'nickname.regex' => 'Nama/nickname hanya boleh mengandung huruf, angka, spasi, garis bawah, dan tanda hubung.',
             'prodi.regex' => 'Program studi hanya boleh mengandung huruf, angka, spasi, titik, garis bawah, dan tanda hubung.'
         ]);
+
+        if (!hash_equals((string) $setting->access_passkey, (string) $request->input('passkey'))) {
+            return back()->withErrors(['passkey' => 'Passkey salah. Gunakan passkey aktif dari admin.'])->withInput();
+        }
 
         $nickname = trim($request->input('nickname'));
         $prodi = trim($request->input('prodi'));
 
         $request->session()->put('nickname', $nickname);
         $request->session()->put('prodi', $prodi);
+        $request->session()->put('workspace_passkey', $request->input('passkey'));
+
+        if ($setting->active_activity === WorkspaceSetting::ACTIVE_AUDIT) {
+            return redirect()->route('audit.index');
+        }
 
         return redirect()->route('home');
     }
@@ -122,7 +191,7 @@ class DatasetController extends Controller
      */
     public function logoutNickname(Request $request)
     {
-        $request->session()->forget(['nickname', 'prodi']);
+        $request->session()->forget(['nickname', 'prodi', 'workspace_passkey']);
         return redirect()->route('home');
     }
 
@@ -151,10 +220,11 @@ class DatasetController extends Controller
      */
     public function getNextImage(Request $request)
     {
-        $nickname = $request->session()->get('nickname');
-        if (!$nickname) {
-            return response()->json(['error' => 'Nickname not set'], 403);
+        if (!$this->isWorkspaceAccessValid($request, WorkspaceSetting::ACTIVE_LABELING)) {
+            return $this->deniedWorkspaceResponse($request, 'Workspace labeling belum aktif atau passkey sudah tidak valid.');
         }
+
+        $nickname = $request->session()->get('nickname');
 
         // Calculate all statistics in a single highly optimized SQL query
         $stats = Image::selectRaw("
@@ -203,11 +273,12 @@ class DatasetController extends Controller
      */
     public function submitLabel(Request $request)
     {
+        if (!$this->isWorkspaceAccessValid($request, WorkspaceSetting::ACTIVE_LABELING)) {
+            return $this->deniedWorkspaceResponse($request, 'Workspace labeling belum aktif atau passkey sudah tidak valid.');
+        }
+
         $nickname = $request->session()->get('nickname');
         $prodi = $request->session()->get('prodi');
-        if (!$nickname || !$prodi) {
-            return response()->json(['error' => 'Sesi Anda telah berakhir, silakan muat ulang halaman.'], 403);
-        }
 
         $request->validate([
             'image_id' => 'required|exists:images,id',
@@ -250,6 +321,10 @@ class DatasetController extends Controller
      */
     public function getLeaderboard()
     {
+        if (!$this->isWorkspaceAccessValid(request(), WorkspaceSetting::ACTIVE_LABELING)) {
+            abort(403, 'Workspace labeling belum aktif atau passkey sudah tidak valid.');
+        }
+
         $leaderboard = Image::select('labeled_by', DB::raw('count(*) as total'))
             ->whereIn('label_status', ['pending', 'approved'])
             ->whereNotNull('labeled_by')
@@ -267,6 +342,8 @@ class DatasetController extends Controller
     public function adminView(Request $request)
     {
         if ($request->session()->has('admin_authenticated')) {
+            $workspaceSetting = $this->getWorkspaceSetting();
+
             // Calculate stats
             $stats = [
                 'total' => Image::count(),
@@ -276,6 +353,9 @@ class DatasetController extends Controller
                 'recycleable' => Image::where('label', 0)->where('label_status', 'approved')->count(),
                 'electronics' => Image::where('label', 1)->where('label_status', 'approved')->count(),
                 'organics' => Image::where('label', 2)->where('label_status', 'approved')->count(),
+                'audit_total' => AuditCandidate::count(),
+                'audit_round1_pending' => AuditCandidate::whereNull('round1_decision')->count(),
+                'audit_round2_pending' => AuditCandidate::where('round1_decision', 'A')->whereNull('round2_decision')->count(),
             ];
 
             // Get unique labeler names that have pending items
@@ -347,7 +427,8 @@ class DatasetController extends Controller
             return view('admin', compact(
                 'stats', 'pendingItems', 'approvedItems', 'manualExamples', 
                 'pendingLabelers', 'filterUser', 'searchPending',
-                'approvedLabelers', 'filterApprovedUser', 'searchApproved'
+                'approvedLabelers', 'filterApprovedUser', 'searchApproved',
+                'workspaceSetting'
             ));
         }
 
@@ -368,6 +449,38 @@ class DatasetController extends Controller
         }
 
         return back()->withErrors(['password' => 'Password salah!']);
+    }
+
+    public function updateWorkspaceSettings(Request $request)
+    {
+        if (!$request->session()->has('admin_authenticated')) {
+            return redirect()->route('admin');
+        }
+
+        $request->validate([
+            'active_activity' => 'required|in:' . implode(',', WorkspaceSetting::ACTIVE_ACTIVITIES),
+        ]);
+
+        $setting = $this->getWorkspaceSetting();
+        $setting->update([
+            'active_activity' => $request->input('active_activity'),
+        ]);
+
+        return back()->with('success', 'Aktivitas aktif berhasil diperbarui.');
+    }
+
+    public function regenerateWorkspacePasskey(Request $request)
+    {
+        if (!$request->session()->has('admin_authenticated')) {
+            return redirect()->route('admin');
+        }
+
+        $setting = $this->getWorkspaceSetting();
+        $setting->update([
+            'access_passkey' => strtoupper(Str::random(8)),
+        ]);
+
+        return back()->with('success', 'Passkey baru berhasil dibuat. Bagikan ke user yang berhak mengakses workspace.');
     }
 
     /**
