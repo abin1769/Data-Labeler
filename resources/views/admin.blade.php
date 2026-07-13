@@ -139,9 +139,9 @@
                 <form action="{{ route('admin.workspace-settings') }}" method="POST" class="glass-card rounded-2xl p-4 space-y-3">
                     @csrf
                     <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Aktivitas yang dibuka</label>
-                    <select name="active_activity" class="w-full bg-slate-900 border border-slate-700/60 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium">
-                        <option value="labeling" @selected(($workspaceSetting->active_activity ?? 'labeling') === 'labeling')>Labeling</option>
-                        <option value="audit" @selected(($workspaceSetting->active_activity ?? 'labeling') === 'audit')>Audit</option>
+                    <select name="active_activity" class="w-full bg-slate-900 border border-slate-700/60 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium font-outfit">
+                        <option value="labeling" @selected(($workspaceSetting->active_activity ?? 'labeling') === 'labeling')>Fase 2: Active Labeling (Pelabelan Crowdsourced)</option>
+                        <option value="audit" @selected(($workspaceSetting->active_activity ?? 'labeling') === 'audit')>Fase 1: Preprocessing & Cleaning (Audit Outlier & Salah Label)</option>
                     </select>
                     <button type="submit" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all">Simpan Mode Aktif</button>
                 </form>

@@ -41,6 +41,7 @@ Route::get('/audit-image/{label}/{filename}', [AuditController::class, 'serveIma
 
 Route::get('/api/audit/next', [AuditController::class, 'getNextCandidate'])->name('api.audit.next');
 Route::post('/api/audit/submit', [AuditController::class, 'submitDecision'])->name('api.audit.submit');
+Route::post('/api/audit/crop', [AuditController::class, 'cropImage'])->name('api.audit.crop');
 Route::get('/api/audit/relabel/next', [AuditController::class, 'getNextRelabel'])->name('api.audit.relabel.next');
 Route::post('/api/audit/relabel/submit', [AuditController::class, 'submitRelabel'])->name('api.audit.relabel.submit');
 

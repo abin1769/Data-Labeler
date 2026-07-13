@@ -14,6 +14,9 @@
         }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Cropper.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
     <style>
         body {
             background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.05), transparent 45%),
@@ -104,9 +107,22 @@
                         </svg>
                     </div>
                     <h3 class="text-2xl font-extrabold font-outfit text-slate-100">Semua Kandidat Sudah Ditinjau!</h3>
-                    <p class="text-slate-400 mt-2 max-w-sm text-sm">Lanjut ke <a href="{{ route('audit.relabel') }}" class="text-amber-400 underline">putaran 2</a> untuk tentukan label tujuan kandidat kategori A.</p>
+                    <p class="text-slate-400 mt-2 max-w-sm text-sm">Audit selesai! Silakan hubungi Admin untuk mengunduh hasil audit terbaru dan menerapkannya ke dataset.</p>
                 </div>
                 <img id="target-image" src="" alt="Kandidat audit" class="hidden max-h-[340px] max-w-full object-contain select-none transition-transform duration-300" onload="imageLoaded()" onerror="imageError()">
+            </div>
+
+            <!-- Crop Controls -->
+            <div id="crop-actions" class="hidden w-full flex justify-center gap-3 mb-4">
+                <button onclick="saveCrop()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all">Simpan Crop</button>
+                <button onclick="cancelCrop()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition-all">Batal</button>
+            </div>
+            
+            <div id="crop-trigger-container" class="w-full flex justify-center mb-2">
+                <button id="btn-crop" onclick="startCropping()" class="px-3.5 py-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-indigo-400 rounded-xl text-[11px] font-medium flex items-center gap-1.5 transition-all">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" /></svg>
+                    Potong / Crop Gambar
+                </button>
             </div>
 
             <div class="w-full text-center mb-2">
@@ -124,6 +140,17 @@
                 <span class="text-[11px] bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-1.5 text-slate-300">
                     Tetangga Dominan: <b id="info-dominant" class="text-emerald-400">-</b>
                 </span>
+            </div>
+
+            <!-- Relabel Options (Inline Putaran 2) -->
+            <div id="relabel-options" class="hidden w-full p-5 bg-amber-500/5 border border-amber-500/20 rounded-2xl mb-4 text-center">
+                <p class="text-xs font-bold text-amber-300 uppercase tracking-wider mb-3">Tentukan Kelas Tujuan yang Benar</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <button onclick="submitDecisionWithClass('0_Recyclable')" class="py-2.5 px-4 bg-slate-900/80 hover:bg-amber-500/10 border border-slate-800 hover:border-amber-500/40 rounded-xl text-xs font-bold text-slate-200 transition-all active:scale-95">0_Recyclable</button>
+                    <button onclick="submitDecisionWithClass('1_Electronic')" class="py-2.5 px-4 bg-slate-900/80 hover:bg-amber-500/10 border border-slate-800 hover:border-amber-500/40 rounded-xl text-xs font-bold text-slate-200 transition-all active:scale-95">1_Electronic</button>
+                    <button onclick="submitDecisionWithClass('2_Organic')" class="py-2.5 px-4 bg-slate-900/80 hover:bg-amber-500/10 border border-slate-800 hover:border-amber-500/40 rounded-xl text-xs font-bold text-slate-200 transition-all active:scale-95">2_Organic</button>
+                </div>
+                <button onclick="cancelRelabelChoice()" class="mt-4 text-[10px] text-slate-400 hover:underline">Batal</button>
             </div>
 
             <div id="decision-controls" class="w-full">
@@ -156,6 +183,7 @@
 
         let activeCandidateId = null;
         let awaitingNext = false;
+        let cropper = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             fetchNext();
@@ -218,26 +246,131 @@
 
         function submitDecision(decision) {
             if (!activeCandidateId || awaitingNext) return;
-            awaitingNext = true; // kunci sebelum request, cegah double-submit
+            
+            // Jika memilih Salah Label (A), tampilkan pilihan sub-kelas (Putaran 2 terintegrasi)
+            if (decision === 'A') {
+                document.getElementById('decision-controls').classList.add('hidden');
+                document.getElementById('crop-trigger-container').classList.add('hidden');
+                document.getElementById('relabel-options').classList.remove('hidden');
+                return;
+            }
+
+            // Untuk keputusan B, C, D, langsung submit ke backend
+            executeSubmit(decision, null);
+        }
+
+        function submitDecisionWithClass(targetClass) {
+            executeSubmit('A', targetClass);
+        }
+
+        function cancelRelabelChoice() {
+            document.getElementById('relabel-options').classList.add('hidden');
+            document.getElementById('decision-controls').classList.remove('hidden');
+            document.getElementById('crop-trigger-container').classList.remove('hidden');
+            awaitingNext = false;
+        }
+
+        function executeSubmit(decision, relabelTo) {
+            awaitingNext = true;
             document.getElementById('decision-controls').classList.add('opacity-30', 'pointer-events-none');
             const note = document.getElementById('note').value;
 
-            axios.post('{{ route("api.audit.submit") }}', { candidate_id: activeCandidateId, decision, note })
+            axios.post('{{ route("api.audit.submit") }}', { 
+                candidate_id: activeCandidateId, 
+                decision, 
+                relabel_to: relabelTo, 
+                note 
+            })
                 .then(response => {
                     const data = response.data;
+                    document.getElementById('relabel-options').classList.add('hidden');
+                    document.getElementById('decision-controls').classList.remove('hidden');
+                    document.getElementById('crop-trigger-container').classList.remove('hidden');
+                    
                     document.getElementById('reveal-pred').textContent = data.predicted_label ?? '-';
                     document.getElementById('reveal-score').textContent = data.label_quality_score != null ? Number(data.label_quality_score).toFixed(4) : '-';
                     document.getElementById('reveal-box').classList.remove('hidden');
                 })
                 .catch(err => {
                     awaitingNext = false;
-                    document.getElementById('decision-controls').classList.remove('opacity-30', 'pointer-events-none');
+                    document.getElementById('decision-controls').classList.remove('opacity-30', 'pointer-events-none', 'hidden');
+                    document.getElementById('crop-trigger-container').classList.remove('hidden');
+                    document.getElementById('relabel-options').classList.add('hidden');
+                    
                     if (err.response && err.response.status === 409) {
                         showAlert(err.response.data.error, 'warning');
                         setTimeout(fetchNext, 1500);
                     } else {
                         showAlert('Gagal mengirim keputusan. Coba lagi.', 'danger');
                     }
+                });
+        }
+
+        // ==========================================
+        // CROP IMAGE FUNCTIONALITY (Cropper.js)
+        // ==========================================
+        function startCropping() {
+            const image = document.getElementById('target-image');
+            if (!image || image.classList.contains('hidden')) return;
+
+            document.getElementById('decision-controls').classList.add('hidden');
+            document.getElementById('crop-trigger-container').classList.add('hidden');
+            document.getElementById('crop-actions').classList.remove('hidden');
+
+            cropper = new Cropper(image, {
+                viewMode: 1,
+                autoCropArea: 0.8,
+                responsive: true,
+                background: false,
+                zoomable: false,
+            });
+        }
+
+        function cancelCrop() {
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+            document.getElementById('crop-actions').classList.add('hidden');
+            document.getElementById('decision-controls').classList.remove('hidden');
+            document.getElementById('crop-trigger-container').classList.remove('hidden');
+        }
+
+        function saveCrop() {
+            if (!cropper || !activeCandidateId) return;
+
+            const canvas = cropper.getCroppedCanvas({
+                maxWidth: 1024,
+                maxHeight: 1024,
+            });
+
+            if (!canvas) {
+                showAlert('Gagal mengambil data crop gambar.', 'danger');
+                return;
+            }
+
+            const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+
+            showLoader(true);
+            axios.post('{{ route("api.audit.crop") }}', {
+                candidate_id: activeCandidateId,
+                cropped_image: base64Image
+            })
+                .then(response => {
+                    const img = document.getElementById('target-image');
+                    // Tambah cache buster t=timestamp agar browser me-reload gambar terbaru
+                    const currentUrl = new URL(img.src);
+                    currentUrl.searchParams.set('t', new Date().getTime());
+                    img.src = currentUrl.toString();
+
+                    cancelCrop();
+                    showAlert('Gambar berhasil di-crop!', 'success');
+                    setTimeout(hideAlert, 2000);
+                })
+                .catch(err => {
+                    showLoader(false);
+                    console.error(err);
+                    showAlert('Gagal menyimpan hasil crop gambar.', 'danger');
                 });
         }
 

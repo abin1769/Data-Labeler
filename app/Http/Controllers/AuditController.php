@@ -182,14 +182,16 @@ class AuditController extends Controller
         $request->validate([
             'candidate_id' => 'required|exists:audit_candidates,id',
             'decision' => 'required|in:A,B,C,D',
+            'relabel_to' => 'nullable|required_if:decision,A|in:0_Recyclable,1_Electronic,2_Organic',
             'note' => 'nullable|string|max:500',
         ]);
 
         $id = $request->input('candidate_id');
         $decision = $request->input('decision');
+        $relabelTo = $request->input('relabel_to');
         $note = $request->input('note');
 
-        $result = DB::transaction(function () use ($id, $decision, $note, $nickname) {
+        $result = DB::transaction(function () use ($id, $decision, $relabelTo, $note, $nickname) {
             $candidate = AuditCandidate::where('id', $id)
                 ->whereNull('round1_decision')
                 ->lockForUpdate()
@@ -199,12 +201,21 @@ class AuditController extends Controller
                 return null;
             }
 
-            $candidate->update([
+            $updateData = [
                 'round1_decision' => $decision,
                 'round1_note' => $note,
                 'round1_by' => $nickname,
                 'round1_at' => now(),
-            ]);
+            ];
+
+            // Jika salah label (A), langsung simpan kelas tujuan di putaran 2
+            if ($decision === 'A') {
+                $updateData['round2_decision'] = $relabelTo;
+                $updateData['round2_by'] = $nickname;
+                $updateData['round2_at'] = now();
+            }
+
+            $candidate->update($updateData);
 
             return $candidate;
         });
@@ -218,6 +229,48 @@ class AuditController extends Controller
             'predicted_label' => $result->predicted_label,
             'label_quality_score' => $result->label_quality_score,
         ]);
+    }
+
+    /**
+     * Menyimpan gambar yang telah di-crop langsung ke disk.
+     */
+    public function cropImage(Request $request)
+    {
+        if (!$this->isAuditAccessValid($request)) {
+            return $this->deniedAuditResponse($request, 'Akses ditolak.');
+        }
+
+        $request->validate([
+            'candidate_id' => 'required|exists:audit_candidates,id',
+            'cropped_image' => 'required|string', // Data Base64
+        ]);
+
+        $candidate = AuditCandidate::findOrFail($request->input('candidate_id'));
+
+        $imageData = $request->input('cropped_image');
+        if (preg_match('/^data:image\/(\w+);base64,/', $imageData, $type)) {
+            $imageData = substr($imageData, strpos($imageData, ',') + 1);
+            $type = strtolower($type[1]);
+
+            $imageData = base64_decode($imageData);
+            if ($imageData === false) {
+                return response()->json(['error' => 'Dekode base64 gambar gagal.'], 422);
+            }
+        } else {
+            return response()->json(['error' => 'Format gambar tidak valid.'], 422);
+        }
+
+        // Tentukan path gambar di public/dataset/train/...
+        $filePath = public_path('dataset' . DIRECTORY_SEPARATOR . 'train' . DIRECTORY_SEPARATOR . $candidate->given_label . DIRECTORY_SEPARATOR . $candidate->filename);
+
+        if (!File::exists($filePath)) {
+            return response()->json(['error' => 'Berkas gambar asli tidak ditemukan.'], 404);
+        }
+
+        // Timpa gambar lama dengan gambar crop baru
+        File::put($filePath, $imageData);
+
+        return response()->json(['success' => true]);
     }
 
     /**
