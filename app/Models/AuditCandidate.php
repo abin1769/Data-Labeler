@@ -15,6 +15,11 @@ class AuditCandidate extends Model
         'given_label',
         'predicted_label',
         'label_quality_score',
+        'sub_cluster_id',
+        'neighbor_conflict_rate',
+        'dominant_neighbor_class',
+        'hdbscan_outlier_score',
+        'priority_score',
         'round1_decision',
         'round1_note',
         'round1_by',
@@ -28,6 +33,9 @@ class AuditCandidate extends Model
         'round1_at' => 'datetime',
         'round2_at' => 'datetime',
         'label_quality_score' => 'float',
+        'neighbor_conflict_rate' => 'float',
+        'hdbscan_outlier_score' => 'float',
+        'priority_score' => 'float',
     ];
 
     public const ROUND1_RUBRIC = [

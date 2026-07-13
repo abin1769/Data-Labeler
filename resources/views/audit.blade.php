@@ -109,9 +109,21 @@
                 <img id="target-image" src="" alt="Kandidat audit" class="hidden max-h-[340px] max-w-full object-contain select-none transition-transform duration-300" onload="imageLoaded()" onerror="imageError()">
             </div>
 
-            <div class="w-full text-center mb-4">
+            <div class="w-full text-center mb-2">
                 <span class="text-xs text-slate-400">Label saat ini: </span>
                 <span id="given-label" class="font-bold text-slate-100">-</span>
+            </div>
+
+            <div id="clustering-info" class="hidden w-full flex flex-wrap justify-center gap-2 mb-4">
+                <span class="text-[11px] bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-1.5 text-slate-300">
+                    Klaster: <b id="info-cluster" class="text-indigo-400">-</b>
+                </span>
+                <span class="text-[11px] bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-1.5 text-slate-300">
+                    Konflik Tetangga: <b id="info-conflict" class="text-red-400">-</b>
+                </span>
+                <span class="text-[11px] bg-slate-900/60 border border-slate-800 rounded-xl px-3 py-1.5 text-slate-300">
+                    Tetangga Dominan: <b id="info-dominant" class="text-emerald-400">-</b>
+                </span>
             </div>
 
             <div id="decision-controls" class="w-full">
@@ -180,6 +192,16 @@
                     showComplete(false);
                     activeCandidateId = data.candidate.id;
                     document.getElementById('given-label').textContent = data.candidate.given_label;
+                    
+                    if (data.candidate.sub_cluster_id) {
+                        document.getElementById('clustering-info').classList.remove('hidden');
+                        document.getElementById('info-cluster').textContent = data.candidate.sub_cluster_id;
+                        document.getElementById('info-conflict').textContent = (data.candidate.neighbor_conflict_rate * 100).toFixed(0) + '%';
+                        document.getElementById('info-dominant').textContent = data.candidate.dominant_neighbor_class;
+                    } else {
+                        document.getElementById('clustering-info').classList.add('hidden');
+                    }
+                    
                     document.getElementById('note').value = '';
                     const img = document.getElementById('target-image');
                     img.src = data.candidate.url;

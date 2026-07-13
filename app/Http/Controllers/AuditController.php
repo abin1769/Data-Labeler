@@ -135,8 +135,15 @@ class AuditController extends Controller
 
         $candidate = null;
         if ($totalLeft > 0) {
-            $offset = rand(0, $totalLeft - 1);
-            $candidate = AuditCandidate::whereNull('round1_decision')->skip($offset)->first();
+            // Ambil top 50 prioritas tertinggi yang belum ditinjau
+            $candidates = AuditCandidate::whereNull('round1_decision')
+                ->orderBy('priority_score', 'desc')
+                ->take(50)
+                ->get();
+                
+            if ($candidates->isNotEmpty()) {
+                $candidate = $candidates->random();
+            }
         }
 
         if (!$candidate) {
@@ -150,6 +157,11 @@ class AuditController extends Controller
                 'filename' => $candidate->filename,
                 'given_label' => $candidate->given_label,
                 'url' => $candidate->url,
+                'sub_cluster_id' => $candidate->sub_cluster_id,
+                'neighbor_conflict_rate' => $candidate->neighbor_conflict_rate,
+                'dominant_neighbor_class' => $candidate->dominant_neighbor_class,
+                'hdbscan_outlier_score' => $candidate->hdbscan_outlier_score,
+                'priority_score' => $candidate->priority_score,
             ],
             'total_left' => $totalLeft,
             'total_done' => $totalDone,
@@ -341,34 +353,73 @@ class AuditController extends Controller
         }
         $col = array_flip($header);
 
-        $required = ['filepath', 'given_label', 'predicted_label', 'label_quality_score', 'is_flagged_label_issue'];
+        // Cek kolom yang tersedia
+        $isClustering = isset($col['priority_score']) && isset($col['neighbor_conflict_rate']);
+        
+        if ($isClustering) {
+            $required = ['filepath', 'label', 'sub_cluster_id', 'neighbor_conflict_rate', 'dominant_neighbor_class', 'hdbscan_outlier_score', 'priority_score'];
+        } else {
+            $required = ['filepath', 'given_label', 'predicted_label', 'label_quality_score', 'is_flagged_label_issue'];
+        }
+
         foreach ($required as $c) {
             if (!isset($col[$c])) {
                 fclose($handle);
-                return back()->with('error', "Kolom '{$c}' tidak ada di CSV. Pastikan ini label_issues.csv dari scripts/audit_data.py.");
+                return back()->with('error', "Kolom '{$c}' tidak ditemukan di CSV.");
             }
         }
 
         $imported = 0;
         $skipped = 0;
         while (($row = fgetcsv($handle)) !== false) {
-            $flagged = strtolower(trim($row[$col['is_flagged_label_issue']])) === 'true';
-            if (!$flagged) {
-                $skipped++;
-                continue;
-            }
-
             $filepath = str_replace('\\', '/', $row[$col['filepath']]);
             $filename = basename($filepath);
 
-            AuditCandidate::updateOrCreate(
-                ['filename' => $filename],
-                [
-                    'given_label' => $row[$col['given_label']],
-                    'predicted_label' => $row[$col['predicted_label']],
-                    'label_quality_score' => (float) $row[$col['label_quality_score']],
-                ]
-            );
+            if ($isClustering) {
+                $priorityScore = (float) $row[$col['priority_score']];
+                $conflictRate = (float) $row[$col['neighbor_conflict_rate']];
+                $outlierScore = (float) $row[$col['hdbscan_outlier_score']];
+                $isCloserToOther = isset($col['is_closer_to_other']) && strtolower(trim($row[$col['is_closer_to_other']])) === 'true';
+
+                // FILTER: Hanya masukkan jika mencurigakan (conflict >= 20%, outlier >= 0.5, atau lebih dekat ke kelas lain)
+                $isSuspicious = ($conflictRate >= 0.2) || ($outlierScore >= 0.5) || $isCloserToOther;
+                
+                if (!$isSuspicious) {
+                    $skipped++;
+                    continue;
+                }
+
+                AuditCandidate::updateOrCreate(
+                    ['filename' => $filename],
+                    [
+                        'given_label' => $row[$col['label']],
+                        'predicted_label' => $row[$col['dominant_neighbor_class']],
+                        'label_quality_score' => 1.0 - $conflictRate,
+                        'sub_cluster_id' => $row[$col['sub_cluster_id']],
+                        'neighbor_conflict_rate' => $conflictRate,
+                        'dominant_neighbor_class' => $row[$col['dominant_neighbor_class']],
+                        'hdbscan_outlier_score' => $outlierScore,
+                        'priority_score' => $priorityScore,
+                    ]
+                );
+            } else {
+                // Skema lama Cleanlab
+                $flagged = strtolower(trim($row[$col['is_flagged_label_issue']])) === 'true';
+                if (!$flagged) {
+                    $skipped++;
+                    continue;
+                }
+
+                AuditCandidate::updateOrCreate(
+                    ['filename' => $filename],
+                    [
+                        'given_label' => $row[$col['given_label']],
+                        'predicted_label' => $row[$col['predicted_label']],
+                        'label_quality_score' => (float) $row[$col['label_quality_score']],
+                        'priority_score' => 1.0 - (float) $row[$col['label_quality_score']],
+                    ]
+                );
+            }
             $imported++;
         }
         fclose($handle);
